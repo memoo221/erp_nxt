@@ -11,9 +11,10 @@
                     <field name="order_id"/>
                 </group>
                 <p class="text-muted">
-                    Add one row per vendor, then pick the items to ask that vendor for
-                    from the Items dropdown (only items of this PO are listed), or tick
-                    "All Items". Vendor/item pairs already requested are skipped.
+                    1. Click "Add a line" and choose a vendor.
+                    2. On the same row, click in the "Items to request" column and pick
+                    items from the dropdown (only this PO's items are listed), or tick
+                    "All Items". Pairs already requested are skipped.
                 </p>
                 <!-- A One2many shown as an editable list: rows are typed in place. -->
                 <field name="line_ids">
@@ -25,8 +26,12 @@
                         <!-- many2many_tags: a dropdown to pick from; each
                              picked item becomes a removable tag. The context
                              key switches the items to their short label. -->
+                        <!-- `parent` is the dialog itself: the dropdown is limited
+                             to the items of the PO shown at the top. -->
                         <field name="sale_line_ids" widget="many2many_tags"
+                               string="Items to request (click here to pick)"
                                options="{'no_create': True}"
+                               domain="[('order_id', '=', parent.order_id), ('display_type', '=', False)]"
                                context="{'procurement_item_name': True}"
                                placeholder="Pick items of this PO..."/>
                     </list>
