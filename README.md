@@ -109,6 +109,17 @@ What needs what during development:
 | View / report XML of an installed module | refresh the browser (`--dev=xml`)  |
 | Fields, models, new files, security, data, manifest | upgrade the module (`-u`) |
 
+## Demo data
+
+In a database created with *Demo data* ticked, the module loads the real
+client PO No. 65282 from Etisalat Misr (`demo/demo_po_65282.xml`): all header
+fields, 14 lines, payment milestones, delivery groups and the page-2 terms.
+Find it under **Procurement > Client POs**.
+
+The three vendors, their quotes and the purchases in that file are invented so
+the screens have data; so is the advance payment date. The delivery group of
+each line is an assumption that must be confirmed against Annex-I.
+
 ## Run the tests
 
 ```powershell
@@ -119,7 +130,9 @@ docker compose exec odoo odoo -d nxtvolt -u procurement_custom --test-tags /proc
 - `--http-port=8070`: in test mode Odoo always starts an HTTP server, and 8069
   is already used by the running dev server.
 - The last log line reports the result, e.g.
-  `0 failed, 0 error(s) of 12 tests`. The exit code is non-zero on failure.
+  `0 failed, 0 error(s) of 17 tests`. The exit code is non-zero on failure.
+- One test checks the demo PO (No. 65282) and is skipped in a database
+  created without demo data.
 
 Tests run inside a transaction that is rolled back, so they do not change
 your data.

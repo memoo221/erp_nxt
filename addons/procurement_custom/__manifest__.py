@@ -28,6 +28,10 @@
         "views/sale_order_views.xml",
         "views/menus.xml",
     ],
+    # Sample records, loaded only into databases created with "Demo data".
+    "demo": [
+        "demo/demo_po_65282.xml",
+    ],
     # True = shown as an "App" with its own icon on the Apps screen.
     "application": True,
     "installable": True,

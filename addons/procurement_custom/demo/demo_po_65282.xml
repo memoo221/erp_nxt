@@ -1,0 +1,697 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        DEMO DATA: the real client PO No. 65282 from Etisalat Misr, entered
+        completely, plus invented sourcing data (vendors, quotes, purchases) so
+        that every screen has something to show.
+
+        Demo files are only loaded into databases created with "Demo data"
+        ticked. Each <record> has an id; other records point at it with ref="".
+
+        What is REAL (copied from the PO): everything on the sales order and its
+        lines, milestones and delivery groups.
+        What is INVENTED for the demo: the three vendors, their quotes, the
+        purchases, and advance_payment_received_date.
+    -->
+
+    <!-- Egyptian VAT. The main company's chart of accounts has no 14% tax. -->
+    <record id="tax_vat_14_sale" model="account.tax">
+        <field name="name">14% VAT</field>
+        <field name="amount">14</field>
+        <field name="amount_type">percent</field>
+        <field name="type_tax_use">sale</field>
+        <field name="company_id" ref="base.main_company"/>
+    </record>
+
+    <!-- A sales order takes its currency from its pricelist. -->
+    <record id="pricelist_usd" model="product.pricelist">
+        <field name="name">USD (Client POs)</field>
+        <field name="currency_id" ref="base.USD"/>
+    </record>
+
+    <!-- 50% advance / 50% within 15 days of delivery completion. The detailed
+         split (with and without LG) is in the payment milestones below. -->
+    <record id="payment_term_po_65282" model="account.payment.term">
+        <field name="name">50% advance, 50% 15 days after delivery completion</field>
+        <field name="line_ids" eval="[
+            Command.clear(),
+            Command.create({'value': 'percent', 'value_amount': 50, 'nb_days': 0}),
+            Command.create({'value': 'percent', 'value_amount': 50, 'nb_days': 15}),
+        ]"/>
+    </record>
+
+    <!-- ============================ Client ============================ -->
+    <record id="partner_etisalat" model="res.partner">
+        <field name="name">Etisalat Misr</field>
+        <field name="is_company" eval="True"/>
+        <field name="street">Down Town, 90th Street, 5th Compound</field>
+        <field name="city">New Cairo</field>
+        <field name="country_id" ref="base.eg"/>
+        <field name="phone">+20235311726</field>
+        <field name="customer_rank">1</field>
+    </record>
+    <!-- Contacts UNDER the client: parent_id links them to the company. -->
+    <record id="partner_etisalat_buyer" model="res.partner">
+        <field name="name">Haytham Ibrahim Ibrahim El Sisi</field>
+        <field name="parent_id" ref="partner_etisalat"/>
+        <field name="type">contact</field>
+        <field name="function">Buyer</field>
+    </record>
+    <record id="partner_etisalat_requester" model="res.partner">
+        <field name="name">Moemen Mohamed Nabil Mohamed Mohsen Ali</field>
+        <field name="parent_id" ref="partner_etisalat"/>
+        <field name="type">contact</field>
+        <field name="function">Requester, Technical Procurement, Contracts &amp; Commercial Control</field>
+    </record>
+    <record id="partner_etisalat_store" model="res.partner">
+        <field name="name">Etisalat (Site/Store)</field>
+        <field name="parent_id" ref="partner_etisalat"/>
+        <field name="type">delivery</field>
+        <field name="city">New Cairo</field>
+        <field name="country_id" ref="base.eg"/>
+    </record>
+
+    <!-- ===================== Vendors (invented) ===================== -->
+    <record id="vendor_delta" model="res.partner">
+        <field name="name">Delta Electrical Supplies (demo)</field>
+        <field name="is_company" eval="True"/>
+        <field name="city">Cairo</field>
+        <field name="country_id" ref="base.eg"/>
+        <field name="supplier_rank">1</field>
+    </record>
+    <record id="vendor_nile" model="res.partner">
+        <field name="name">Nile Power Components (demo)</field>
+        <field name="is_company" eval="True"/>
+        <field name="city">Alexandria</field>
+        <field name="country_id" ref="base.eg"/>
+        <field name="supplier_rank">1</field>
+    </record>
+    <record id="vendor_cairo_filters" model="res.partner">
+        <field name="name">Cairo Filters Trading (demo)</field>
+        <field name="is_company" eval="True"/>
+        <field name="city">Giza</field>
+        <field name="country_id" ref="base.eg"/>
+        <field name="supplier_rank">1</field>
+    </record>
+
+    <!-- ====== Products: internal reference = the client's item code ====== -->
+    <record id="product_UNNA97789N" model="product.product">
+        <field name="name">2.195 Motorized-4P-1600A</field>
+        <field name="default_code">UNNA97789N</field>
+        <field name="taxes_id" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+    </record>
+    <record id="product_UNNA97606N" model="product.product">
+        <field name="name">2.12 ID-blower-contactor</field>
+        <field name="default_code">UNNA97606N</field>
+        <field name="taxes_id" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+    </record>
+    <record id="product_UNNA97787N" model="product.product">
+        <field name="name">2.193 MCCB 3P- 125A</field>
+        <field name="default_code">UNNA97787N</field>
+        <field name="taxes_id" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+    </record>
+    <record id="product_UNNA97786N" model="product.product">
+        <field name="name">2.192 MCCB-100A-3P</field>
+        <field name="default_code">UNNA97786N</field>
+        <field name="taxes_id" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+    </record>
+    <record id="product_UNNA97796N" model="product.product">
+        <field name="name">2.202 Surge-Arresaor-20</field>
+        <field name="default_code">UNNA97796N</field>
+        <field name="taxes_id" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+    </record>
+    <record id="product_ANNA97770N" model="product.product">
+        <field name="name">2.176 LED lighting fixtures 100 watts - 5000k - El sewedy</field>
+        <field name="default_code">ANNA97770N</field>
+        <field name="taxes_id" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+    </record>
+    <record id="product_ANNA97761N" model="product.product">
+        <field name="name">2.167 Fuel-Filter-FF1191</field>
+        <field name="default_code">ANNA97761N</field>
+        <field name="taxes_id" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+    </record>
+    <record id="product_ANNA97623N" model="product.product">
+        <field name="name">2.29 Air-Filter-AF7082</field>
+        <field name="default_code">ANNA97623N</field>
+        <field name="taxes_id" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+    </record>
+    <record id="product_UNNA97794N" model="product.product">
+        <field name="name">2.200 PT023_Contactor-Contaator-Amp</field>
+        <field name="default_code">UNNA97794N</field>
+        <field name="taxes_id" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+    </record>
+    <record id="product_UNNA97793N" model="product.product">
+        <field name="name">2.199 PT009-Mcba3p-Mcb</field>
+        <field name="default_code">UNNA97793N</field>
+        <field name="taxes_id" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+    </record>
+    <record id="product_UNNA97792N" model="product.product">
+        <field name="name">2.198 PT004-Mcca-Mccb</field>
+        <field name="default_code">UNNA97792N</field>
+        <field name="taxes_id" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+    </record>
+    <record id="product_ANNA97781N" model="product.product">
+        <field name="name">2.187 Oil-Filter-LF1411</field>
+        <field name="default_code">ANNA97781N</field>
+        <field name="taxes_id" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+    </record>
+    <record id="product_ANNA97630N" model="product.product">
+        <field name="name">2.36 Contactor-ABB</field>
+        <field name="default_code">ANNA97630N</field>
+        <field name="taxes_id" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+    </record>
+    <record id="product_ANNA97622N" model="product.product">
+        <field name="name">2.28 Air-Filter-AF135536206</field>
+        <field name="default_code">ANNA97622N</field>
+        <field name="taxes_id" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+    </record>
+
+    <!-- ======================= The client PO ======================= -->
+    <!-- Multi-line "as printed" texts start at the left margin on purpose:
+         inside an XML field every space and line break is stored as typed. -->
+    <record id="client_po_65282" model="sale.order">
+        <field name="is_client_po" eval="True"/>
+        <field name="partner_id" ref="partner_etisalat"/>
+        <field name="partner_shipping_id" ref="partner_etisalat_store"/>
+        <field name="company_id" ref="base.main_company"/>
+        <field name="pricelist_id" ref="pricelist_usd"/>
+        <!-- The date WE registered the PO (not a date printed on it). -->
+        <field name="date_order">2026-07-20 09:00:00</field>
+        <field name="state">sale</field>
+
+        <!-- Client letterhead -->
+        <field name="client_name_printed">Etisalat Misr</field>
+        <field name="client_address_printed">Down Town, 90thStreet, 5th Compound, New Cairo, Egypt</field>
+        <field name="client_po_box">11</field>
+        <field name="client_phone_printed">+20235311726</field>
+        <field name="client_fax_printed">+20235312994</field>
+
+        <!-- Header table -->
+        <field name="client_order_ref">65282</field>
+        <field name="client_po_date">2026-07-12</field>
+        <field name="client_po_approval_date">2026-07-19</field>
+        <field name="client_pr_number">77285</field>
+        <field name="client_pr_approval_date">2026-07-08</field>
+        <field name="client_buyer_id" ref="partner_etisalat_buyer"/>
+        <field name="client_buyer_name_printed">El Sisi, Mr. Haytham Ibrahim Ibrahim</field>
+        <field name="client_requester_id" ref="partner_etisalat_requester"/>
+        <field name="client_requester_name_printed">Ali, Mr. Moemen Mohamed Nabil Mohamed Mohsen</field>
+        <field name="client_requester_dept">Technical Procurement, Contracts &amp; Commercial Control</field>
+        <field name="penalty_text_printed">1% deduction of total PO value of each week delay capped to 15%</field>
+        <field name="penalty_rate_weekly">1</field>
+        <field name="penalty_cap">15</field>
+        <field name="penalty_base">total_po_value</field>
+        <field name="supplier_name_printed">NXTVOLT</field>
+        <!-- Verbatim: the PDF prints the address twice, run together. -->
+        <field name="supplier_address_printed">13 ElShiek Mohamed Metwally ElSharawy St. Boulak ElDakrour, Giza13 ElShiek Mohamed Metwally ElSharawy St. Boulak ElDakrour, Giza</field>
+        <field name="payment_term_text_printed">As per below details</field>
+        <field name="payment_term_id" ref="payment_term_po_65282"/>
+        <field name="incoterm" ref="account.incoterm_DDP"/>
+        <field name="delivery_term_printed">DDP</field>
+        <field name="delivery_time_printed">0 Days from Receipt Approved PO</field>
+        <field name="delivery_location_printed">Etisalat (Site/Store)</field>
+        <field name="client_po_type">RFP 15/2025</field>
+        <field name="rfp_reference">15/2025</field>
+
+        <!-- Totals as printed -->
+        <field name="total_po_amount_printed">348827.48</field>
+        <field name="tax_table_printed">0</field>
+        <field name="tax_vat_printed">48835.8472</field>
+        <field name="grand_total_printed">397663.33</field>
+        <field name="grand_total_words_printed">Only Three Hundred Ninety Seven Thousand Six Hundred Sixty Three and 33/100 Dollars</field>
+
+        <!-- Page 2: notes -->
+        <field name="notes_to_supplier_printed">Please find attached Terms&amp; Conditions</field>
+        <field name="annex_reference">Annex-I (BOQ)</field>
+
+        <!-- Page 2: payment terms -->
+        <field name="payment_terms_text_printed">- 50% advance payment to be as follows:
+  - Split the 50% advance payment into 25% without LG and 25% with LG (unconditional and irrevocable).
+- The remaining 50% payable upon delivery completion, with a payment collection duration of 15 days.
+- Advance payment's LG will be released upon delivery completion
+- Payment counter to start from the submission date of an accepted invoice.
+- Payment is in EGP according to the CBE exchange rate at the payment time.
+- Partial invoicing and payment for supplied items will be accepted.
+- No PAC or FAC to be applied</field>
+        <field name="payment_currency_id" ref="base.EGP"/>
+        <field name="exchange_rate_rule">CBE exchange rate at the payment time</field>
+        <field name="payment_counter_start">submission date of an accepted invoice</field>
+        <field name="lg_release_condition">upon delivery completion</field>
+        <field name="partial_invoicing_allowed" eval="True"/>
+        <field name="pac_fac_applied" eval="False"/>
+        <!-- NOT on the PO. Invented for the demo so the delivery deadlines
+             below have a start date. Replace with the real date. -->
+        <field name="advance_payment_received_date">2026-08-02</field>
+
+        <!-- Page 2: delivery terms -->
+        <field name="delivery_terms_text_printed">- For Air filter, Fuel Filter &amp; Oil Filter: A batch is available for immediate delivery (immediate means: within 2 weeks from the advance payment receiving date), and the rest within 1-4 months from the receiving date of the advance payment.
+- For Circuit Breakers, AC &amp; Contactor ABB: within 1-4 months from the receiving date of the advance payment (as identified in the BOQ (Annex-I))
+- For the remaining BOQ: within 4 months from the receiving date of the advance payment.
+- Delivery term is DDP to Etisalat warehouse</field>
+        <field name="delivery_destination_printed">DDP to Etisalat warehouse</field>
+
+        <!-- Page 2: warranty -->
+        <field name="warranty_text_printed">- 1 year from the delivery date against manufacturing defects (as per the BOQ identification (Annex-I))</field>
+        <field name="warranty_months">12</field>
+        <field name="warranty_start">delivery_date</field>
+        <field name="warranty_scope">manufacturing defects</field>
+        <field name="warranty_reference">BOQ identification (Annex-I)</field>
+
+        <!-- Approval and document. approved_by_name is left empty on purpose:
+             the signature is illegible. client_po_document_id is empty too:
+             the scan itself is not part of this module; attach it by hand. -->
+        <field name="approved_by_department">Head Office Contracts &amp; Supply Chain Dept.</field>
+        <field name="client_stamp_present" eval="True"/>
+        <field name="other_stamps_note">Arabic office stamp with handwritten signature and date on both pages</field>
+        <field name="handwritten_marks">HE initials on each page</field>
+        <field name="invoice_submission_text_printed">Receiving invoices &amp; Delivery of checks weekly on Sunday, Monday and Wednesday by cash room – S4,L1 Down Town, 90thStreet, 5th Compound, New Cairo – from 10 AM to 1 PM.</field>
+        <field name="invoice_submission_days">Sun, Mon, Wed</field>
+        <field name="invoice_submission_location">Cash room, S4,L1 Down Town, 90th Street, 5th Compound, New Cairo</field>
+        <field name="invoice_submission_hour_from">10.0</field>
+        <field name="invoice_submission_hour_to">13.0</field>
+        <!-- Printed "2026-07-30 11:05:34" in Cairo time (UTC+3 in July).
+             Odoo stores every datetime in UTC, hence 08:05:34. -->
+        <field name="client_po_printed_datetime">2026-07-30 08:05:34</field>
+        <field name="client_po_page_count">2</field>
+    </record>
+
+    <!-- Payment milestones -->
+    <record id="po_65282_milestone_1" model="procurement.payment.milestone">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">10</field>
+        <field name="name">Advance payment without LG</field>
+        <field name="percent">25</field>
+        <field name="requires_lg" eval="False"/>
+        <field name="trigger">on_advance</field>
+    </record>
+    <record id="po_65282_milestone_2" model="procurement.payment.milestone">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">20</field>
+        <field name="name">Advance payment with LG</field>
+        <field name="percent">25</field>
+        <field name="requires_lg" eval="True"/>
+        <field name="lg_type">unconditional and irrevocable</field>
+        <field name="trigger">on_advance</field>
+        <field name="notes">LG released upon delivery completion</field>
+    </record>
+    <record id="po_65282_milestone_3" model="procurement.payment.milestone">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">30</field>
+        <field name="name">Remaining, upon delivery completion</field>
+        <field name="percent">50</field>
+        <field name="trigger">on_delivery_completion</field>
+        <field name="collection_days">15</field>
+    </record>
+
+    <!-- Delivery groups -->
+    <record id="po_65282_group_filters" model="procurement.delivery.group">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">10</field>
+        <field name="name">Filters</field>
+        <field name="description">Air filter, Fuel Filter &amp; Oil Filter</field>
+        <field name="immediate_batch" eval="True"/>
+        <field name="immediate_batch_weeks">2</field>
+        <field name="min_months">1</field>
+        <field name="max_months">4</field>
+        <field name="start_event">advance_payment_received</field>
+    </record>
+    <record id="po_65282_group_breakers" model="procurement.delivery.group">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">20</field>
+        <field name="name">Circuit Breakers, AC &amp; Contactor ABB</field>
+        <field name="description">As identified in the BOQ (Annex-I)</field>
+        <field name="min_months">1</field>
+        <field name="max_months">4</field>
+        <field name="start_event">advance_payment_received</field>
+        <field name="boq_reference">Annex-I</field>
+    </record>
+    <record id="po_65282_group_remaining" model="procurement.delivery.group">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">30</field>
+        <field name="name">Remaining BOQ</field>
+        <field name="max_months">4</field>
+        <field name="start_event">advance_payment_received</field>
+    </record>
+
+    <!--
+        PO lines.
+        TODO(Annex-I): the delivery group of each item below is an assumption
+        made from the item descriptions. The PO says the grouping is "as
+        identified in the BOQ (Annex-I)", so it must be confirmed against
+        Annex-I and corrected here if needed.
+    -->
+    <record id="po_65282_line_01" model="sale.order.line">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">1</field>
+        <field name="client_line_no">1</field>
+        <field name="client_item_code">UNNA97789N</field>
+        <field name="product_id" ref="product_UNNA97789N"/>
+        <field name="description_printed">2.195 Motorized-4P-1600A</field>
+        <field name="uom_printed">Each</field>
+        <field name="product_uom_qty">1</field>
+        <field name="price_unit">7692.28</field>
+        <field name="tax_ids" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+        <field name="total_printed">7692.28</field>
+        <field name="delivery_group_id" ref="po_65282_group_breakers"/>
+    </record>
+    <record id="po_65282_line_02" model="sale.order.line">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">2</field>
+        <field name="client_line_no">2</field>
+        <field name="client_item_code">UNNA97606N</field>
+        <field name="product_id" ref="product_UNNA97606N"/>
+        <field name="description_printed">2.12 ID-blower-contactor</field>
+        <field name="uom_printed">Each</field>
+        <field name="product_uom_qty">5</field>
+        <field name="price_unit">51.53</field>
+        <field name="tax_ids" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+        <field name="total_printed">257.65</field>
+        <field name="delivery_group_id" ref="po_65282_group_breakers"/>
+    </record>
+    <record id="po_65282_line_03" model="sale.order.line">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">3</field>
+        <field name="client_line_no">3</field>
+        <field name="client_item_code">UNNA97787N</field>
+        <field name="product_id" ref="product_UNNA97787N"/>
+        <field name="description_printed">2.193 MCCB 3P- 125A</field>
+        <field name="uom_printed">Each</field>
+        <field name="product_uom_qty">35</field>
+        <field name="price_unit">71.65</field>
+        <field name="tax_ids" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+        <field name="total_printed">2507.75</field>
+        <field name="delivery_group_id" ref="po_65282_group_breakers"/>
+    </record>
+    <record id="po_65282_line_04" model="sale.order.line">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">4</field>
+        <field name="client_line_no">4</field>
+        <field name="client_item_code">UNNA97786N</field>
+        <field name="product_id" ref="product_UNNA97786N"/>
+        <field name="description_printed">2.192 MCCB-100A-3P</field>
+        <field name="uom_printed">Each</field>
+        <field name="product_uom_qty">450</field>
+        <field name="price_unit">66.30</field>
+        <field name="tax_ids" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+        <field name="total_printed">29835.00</field>
+        <field name="delivery_group_id" ref="po_65282_group_breakers"/>
+    </record>
+    <record id="po_65282_line_05" model="sale.order.line">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">5</field>
+        <field name="client_line_no">5</field>
+        <field name="client_item_code">UNNA97796N</field>
+        <field name="product_id" ref="product_UNNA97796N"/>
+        <field name="description_printed">2.202 Surge-Arresaor-20</field>
+        <field name="uom_printed">Each</field>
+        <field name="product_uom_qty">2000</field>
+        <field name="price_unit">21.50</field>
+        <field name="tax_ids" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+        <field name="total_printed">43000.00</field>
+        <field name="delivery_group_id" ref="po_65282_group_remaining"/>
+    </record>
+    <record id="po_65282_line_06" model="sale.order.line">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">6</field>
+        <field name="client_line_no">6</field>
+        <field name="client_item_code">ANNA97770N</field>
+        <field name="product_id" ref="product_ANNA97770N"/>
+        <field name="description_printed">2.176 LED lighting fixtures 100 watts - 5000k - El sewedy</field>
+        <field name="uom_printed">Each</field>
+        <field name="product_uom_qty">50</field>
+        <field name="price_unit">29.56</field>
+        <field name="tax_ids" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+        <field name="total_printed">1478.00</field>
+        <field name="delivery_group_id" ref="po_65282_group_remaining"/>
+    </record>
+    <record id="po_65282_line_07" model="sale.order.line">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">7</field>
+        <field name="client_line_no">7</field>
+        <field name="client_item_code">ANNA97761N</field>
+        <field name="product_id" ref="product_ANNA97761N"/>
+        <field name="description_printed">2.167 Fuel-Filter-FF1191</field>
+        <field name="uom_printed">Each</field>
+        <field name="product_uom_qty">28600</field>
+        <field name="price_unit">1.25</field>
+        <field name="tax_ids" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+        <field name="total_printed">35750.00</field>
+        <field name="delivery_group_id" ref="po_65282_group_filters"/>
+    </record>
+    <record id="po_65282_line_08" model="sale.order.line">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">8</field>
+        <field name="client_line_no">8</field>
+        <field name="client_item_code">ANNA97623N</field>
+        <field name="product_id" ref="product_ANNA97623N"/>
+        <field name="description_printed">2.29 Air-Filter-AF7082</field>
+        <field name="uom_printed">Each</field>
+        <field name="product_uom_qty">1300</field>
+        <field name="price_unit">2.53</field>
+        <field name="tax_ids" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+        <field name="total_printed">3289.00</field>
+        <field name="delivery_group_id" ref="po_65282_group_filters"/>
+    </record>
+    <record id="po_65282_line_09" model="sale.order.line">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">9</field>
+        <field name="client_line_no">9</field>
+        <field name="client_item_code">UNNA97794N</field>
+        <field name="product_id" ref="product_UNNA97794N"/>
+        <field name="description_printed">2.200 PT023_Contactor-Contaator-Amp</field>
+        <field name="uom_printed">Each</field>
+        <field name="product_uom_qty">750</field>
+        <field name="price_unit">100.54</field>
+        <field name="tax_ids" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+        <field name="total_printed">75405.00</field>
+        <field name="delivery_group_id" ref="po_65282_group_breakers"/>
+    </record>
+    <record id="po_65282_line_10" model="sale.order.line">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">10</field>
+        <field name="client_line_no">10</field>
+        <field name="client_item_code">UNNA97793N</field>
+        <field name="product_id" ref="product_UNNA97793N"/>
+        <field name="description_printed">2.199 PT009-Mcba3p-Mcb</field>
+        <field name="uom_printed">Each</field>
+        <field name="product_uom_qty">300</field>
+        <field name="price_unit">33.01</field>
+        <field name="tax_ids" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+        <field name="total_printed">9903.00</field>
+        <field name="delivery_group_id" ref="po_65282_group_breakers"/>
+    </record>
+    <record id="po_65282_line_11" model="sale.order.line">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">11</field>
+        <field name="client_line_no">11</field>
+        <field name="client_item_code">UNNA97792N</field>
+        <field name="product_id" ref="product_UNNA97792N"/>
+        <field name="description_printed">2.198 PT004-Mcca-Mccb</field>
+        <field name="uom_printed">Each</field>
+        <field name="product_uom_qty">450</field>
+        <field name="price_unit">66.30</field>
+        <field name="tax_ids" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+        <field name="total_printed">29835.00</field>
+        <field name="delivery_group_id" ref="po_65282_group_breakers"/>
+    </record>
+    <record id="po_65282_line_12" model="sale.order.line">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">12</field>
+        <field name="client_line_no">12</field>
+        <field name="client_item_code">ANNA97781N</field>
+        <field name="product_id" ref="product_ANNA97781N"/>
+        <field name="description_printed">2.187 Oil-Filter-LF1411</field>
+        <field name="uom_printed">Each</field>
+        <field name="product_uom_qty">30500</field>
+        <field name="price_unit">1.94</field>
+        <field name="tax_ids" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+        <field name="total_printed">59170.00</field>
+        <field name="delivery_group_id" ref="po_65282_group_filters"/>
+    </record>
+    <record id="po_65282_line_13" model="sale.order.line">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">13</field>
+        <field name="client_line_no">13</field>
+        <field name="client_item_code">ANNA97630N</field>
+        <field name="product_id" ref="product_ANNA97630N"/>
+        <field name="description_printed">2.36 Contactor-ABB</field>
+        <field name="uom_printed">Each</field>
+        <field name="product_uom_qty">2</field>
+        <field name="price_unit">368.26</field>
+        <field name="tax_ids" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+        <field name="total_printed">736.52</field>
+        <field name="delivery_group_id" ref="po_65282_group_breakers"/>
+    </record>
+    <record id="po_65282_line_14" model="sale.order.line">
+        <field name="order_id" ref="client_po_65282"/>
+        <field name="sequence">14</field>
+        <field name="client_line_no">14</field>
+        <field name="client_item_code">ANNA97622N</field>
+        <field name="product_id" ref="product_ANNA97622N"/>
+        <field name="description_printed">2.28 Air-Filter-AF135536206</field>
+        <field name="uom_printed">Each</field>
+        <field name="product_uom_qty">7316</field>
+        <field name="price_unit">6.83</field>
+        <field name="tax_ids" eval="[Command.set([ref('tax_vat_14_sale')])]"/>
+        <field name="total_printed">49968.28</field>
+        <field name="delivery_group_id" ref="po_65282_group_filters"/>
+    </record>
+
+    <!-- ============ Vendor quotes (invented prices, in USD) ============ -->
+    <!-- Line 1: Motorized breaker. Two quotes, Delta chosen. -->
+    <record id="quote_l01_delta" model="procurement.quote">
+        <field name="sale_line_id" ref="po_65282_line_01"/>
+        <field name="vendor_id" ref="vendor_delta"/>
+        <field name="quoted_price">6900.00</field>
+        <field name="quote_date">2026-07-27</field>
+        <field name="state">chosen</field>
+    </record>
+    <record id="quote_l01_nile" model="procurement.quote">
+        <field name="sale_line_id" ref="po_65282_line_01"/>
+        <field name="vendor_id" ref="vendor_nile"/>
+        <field name="quoted_price">7150.00</field>
+        <field name="quote_date">2026-07-28</field>
+        <field name="state">rejected</field>
+    </record>
+    <!-- Line 3: MCCB 125A. Nile chosen. -->
+    <record id="quote_l03_delta" model="procurement.quote">
+        <field name="sale_line_id" ref="po_65282_line_03"/>
+        <field name="vendor_id" ref="vendor_delta"/>
+        <field name="quoted_price">63.50</field>
+        <field name="quote_date">2026-07-27</field>
+        <field name="state">rejected</field>
+    </record>
+    <record id="quote_l03_nile" model="procurement.quote">
+        <field name="sale_line_id" ref="po_65282_line_03"/>
+        <field name="vendor_id" ref="vendor_nile"/>
+        <field name="quoted_price">60.00</field>
+        <field name="quote_date">2026-07-28</field>
+        <field name="state">chosen</field>
+    </record>
+    <!-- Line 7: Fuel filter. Three quotes, Cairo Filters chosen. -->
+    <record id="quote_l07_cairo" model="procurement.quote">
+        <field name="sale_line_id" ref="po_65282_line_07"/>
+        <field name="vendor_id" ref="vendor_cairo_filters"/>
+        <field name="quoted_price">1.05</field>
+        <field name="quote_date">2026-07-26</field>
+        <field name="state">chosen</field>
+    </record>
+    <record id="quote_l07_delta" model="procurement.quote">
+        <field name="sale_line_id" ref="po_65282_line_07"/>
+        <field name="vendor_id" ref="vendor_delta"/>
+        <field name="quoted_price">1.12</field>
+        <field name="quote_date">2026-07-27</field>
+        <field name="state">rejected</field>
+    </record>
+    <record id="quote_l07_nile" model="procurement.quote">
+        <field name="sale_line_id" ref="po_65282_line_07"/>
+        <field name="vendor_id" ref="vendor_nile"/>
+        <field name="quoted_price">1.10</field>
+        <field name="quote_date">2026-07-28</field>
+        <field name="state">rejected</field>
+    </record>
+    <!-- Line 8: Air filter AF7082. Cairo Filters chosen. -->
+    <record id="quote_l08_cairo" model="procurement.quote">
+        <field name="sale_line_id" ref="po_65282_line_08"/>
+        <field name="vendor_id" ref="vendor_cairo_filters"/>
+        <field name="quoted_price">2.10</field>
+        <field name="quote_date">2026-07-26</field>
+        <field name="state">chosen</field>
+    </record>
+    <record id="quote_l08_nile" model="procurement.quote">
+        <field name="sale_line_id" ref="po_65282_line_08"/>
+        <field name="vendor_id" ref="vendor_nile"/>
+        <field name="quoted_price">2.25</field>
+        <field name="quote_date">2026-07-28</field>
+        <field name="state">rejected</field>
+    </record>
+    <!-- Line 12: Oil filter. Vendor chosen, nothing bought yet. -->
+    <record id="quote_l12_cairo" model="procurement.quote">
+        <field name="sale_line_id" ref="po_65282_line_12"/>
+        <field name="vendor_id" ref="vendor_cairo_filters"/>
+        <field name="quoted_price">1.60</field>
+        <field name="quote_date">2026-07-26</field>
+        <field name="state">chosen</field>
+    </record>
+    <record id="quote_l12_delta" model="procurement.quote">
+        <field name="sale_line_id" ref="po_65282_line_12"/>
+        <field name="vendor_id" ref="vendor_delta"/>
+        <field name="quoted_price">1.72</field>
+        <field name="quote_date">2026-07-27</field>
+        <field name="state">rejected</field>
+    </record>
+    <!-- Line 14: Air filter. Two prices received, NO decision yet: use this
+         line to try the "Choose" button. -->
+    <record id="quote_l14_cairo" model="procurement.quote">
+        <field name="sale_line_id" ref="po_65282_line_14"/>
+        <field name="vendor_id" ref="vendor_cairo_filters"/>
+        <field name="quoted_price">5.90</field>
+        <field name="quote_date">2026-07-26</field>
+        <field name="state">quoted</field>
+    </record>
+    <record id="quote_l14_nile" model="procurement.quote">
+        <field name="sale_line_id" ref="po_65282_line_14"/>
+        <field name="vendor_id" ref="vendor_nile"/>
+        <field name="quoted_price">6.10</field>
+        <field name="quote_date">2026-07-28</field>
+        <field name="state">quoted</field>
+    </record>
+    <!-- Line 9: Contactors. Requested from two vendors, no price back yet. -->
+    <record id="quote_l09_delta" model="procurement.quote">
+        <field name="sale_line_id" ref="po_65282_line_09"/>
+        <field name="vendor_id" ref="vendor_delta"/>
+    </record>
+    <record id="quote_l09_nile" model="procurement.quote">
+        <field name="sale_line_id" ref="po_65282_line_09"/>
+        <field name="vendor_id" ref="vendor_nile"/>
+    </record>
+
+    <!-- ================= Purchases (invented) ================= -->
+    <!-- Line 1: bought in full. -->
+    <record id="purchase_l01_a" model="procurement.purchase">
+        <field name="sale_line_id" ref="po_65282_line_01"/>
+        <field name="vendor_id" ref="vendor_delta"/>
+        <field name="purchase_price">6900.00</field>
+        <field name="currency_id" ref="base.USD"/>
+        <field name="quantity">1</field>
+        <field name="date">2026-08-12</field>
+    </record>
+    <!-- Line 3: 20 of 35 so far. -->
+    <record id="purchase_l03_a" model="procurement.purchase">
+        <field name="sale_line_id" ref="po_65282_line_03"/>
+        <field name="vendor_id" ref="vendor_nile"/>
+        <field name="purchase_price">60.00</field>
+        <field name="currency_id" ref="base.USD"/>
+        <field name="quantity">20</field>
+        <field name="date">2026-08-18</field>
+    </record>
+    <!-- Line 7: two partial purchases (18,000 of 28,600), the second one
+         at a higher price than quoted. -->
+    <record id="purchase_l07_a" model="procurement.purchase">
+        <field name="sale_line_id" ref="po_65282_line_07"/>
+        <field name="vendor_id" ref="vendor_cairo_filters"/>
+        <field name="purchase_price">1.05</field>
+        <field name="currency_id" ref="base.USD"/>
+        <field name="quantity">10000</field>
+        <field name="date">2026-08-10</field>
+        <field name="notes">Immediate batch</field>
+    </record>
+    <record id="purchase_l07_b" model="procurement.purchase">
+        <field name="sale_line_id" ref="po_65282_line_07"/>
+        <field name="vendor_id" ref="vendor_cairo_filters"/>
+        <field name="purchase_price">1.07</field>
+        <field name="currency_id" ref="base.USD"/>
+        <field name="quantity">8000</field>
+        <field name="date">2026-08-24</field>
+        <field name="notes">Price increased by vendor</field>
+    </record>
+    <!-- Line 8: bought in full. -->
+    <record id="purchase_l08_a" model="procurement.purchase">
+        <field name="sale_line_id" ref="po_65282_line_08"/>
+        <field name="vendor_id" ref="vendor_cairo_filters"/>
+        <field name="purchase_price">2.10</field>
+        <field name="currency_id" ref="base.USD"/>
+        <field name="quantity">1300</field>
+        <field name="date">2026-08-10</field>
+    </record>
+</odoo>
