@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- A view is a record of the model ir.ui.view whose `arch` field holds the
+         XML that describes the screen. -->
+    <record id="view_quote_request_wizard_form" model="ir.ui.view">
+        <field name="name">procurement.quote.request.wizard.form</field>
+        <field name="model">procurement.quote.request.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Request Quotes">
+                <group>
+                    <field name="order_id"/>
+                </group>
+                <p class="text-muted">
+                    Add one row per vendor. Each row starts with every item of the PO;
+                    remove the items that vendor should not be asked for.
+                    Vendor/item pairs that were already requested are skipped.
+                </p>
+                <!-- A One2many shown as an editable list: rows are typed in place. -->
+                <field name="line_ids">
+                    <list editable="bottom">
+                        <field name="order_id" column_invisible="True"/>
+                        <field name="vendor_id" width="250px"
+                               context="{'res_partner_search_mode': 'supplier', 'default_supplier_rank': 1, 'default_is_company': True}"/>
+                        <field name="sale_line_ids" widget="many2many_tags"
+                               options="{'no_create': True}"/>
+                    </list>
+                </field>
+                <footer>
+                    <!-- type="object": calls the Python method named in `name`. -->
+                    <button name="action_create_requests" type="object"
+                            string="Create Quote Requests" class="btn-primary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

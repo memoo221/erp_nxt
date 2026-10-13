@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Reproduction of the client's PO from the stored data, in the same order
+        as the original PDF (letterhead, header table, lines, totals, then the
+        terms of page 2). Its purpose is checking the data entry: print it, put
+        it next to the paper, compare.
+
+        It prints the "as printed" fields wherever they exist, and uses
+        web.basic_layout (no NXTVOLT header/footer) because the document being
+        reproduced is the client's, not ours.
+    -->
+    <template id="report_client_po_document">
+        <t t-call="web.basic_layout">
+            <t t-set="items" t-value="doc.order_line.filtered(lambda l: not l.display_type).sorted(lambda l: (l.client_line_no, l.sequence, l.id))"/>
+            <div class="page" style="font-size: 12px;">
+
+                <!-- Letterhead -->
+                <div class="row mb-2">
+                    <div class="col-7">
+                        <h4 class="mb-1" t-out="doc.client_name_printed or doc.partner_id.name"/>
+                        <div t-field="doc.client_address_printed"/>
+                        <div t-if="doc.client_po_box">P.O Box: <span t-field="doc.client_po_box"/></div>
+                        <div t-if="doc.client_phone_printed">Phone: <span t-field="doc.client_phone_printed"/></div>
+                        <div t-if="doc.client_fax_printed">Fax: <span t-field="doc.client_fax_printed"/></div>
+                    </div>
+                    <div class="col-5 text-end">
+                        <h3>Purchase Order</h3>
+                        <div class="text-muted" style="font-size: 10px;">
+                            Reproduced from registered data
+                            (<span t-field="doc.name"/>) for checking against the original.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Header table: label / value pairs, two per row -->
+                <table class="table table-sm table-bordered mb-2" name="po_header">
+                    <tr>
+                        <th style="width: 18%;">PO No.</th>
+                        <td style="width: 32%;"><span t-field="doc.client_order_ref"/></td>
+                        <th style="width: 18%;">Supplier Name</th>
+                        <td style="width: 32%;"><span t-field="doc.supplier_name_printed"/></td>
+                    </tr>
+                    <tr>
+                        <th>PO Creation Date</th>
+                        <td><span t-out="doc.client_po_date or ''"/></td>
+                        <th>Supplier Address</th>
+                        <td><span t-field="doc.supplier_address_printed"/></td>
+                    </tr>
+                    <tr>
+                        <th>PO Approval Date</th>
+                        <td><span t-out="doc.client_po_approval_date or ''"/></td>
+                        <th>Currency</th>
+                        <td><span t-field="doc.currency_id.name"/></td>
+                    </tr>
+                    <tr>
+                        <th>PR No.</th>
+                        <td><span t-field="doc.client_pr_number"/></td>
+                        <th>Payment Term</th>
+                        <td><span t-field="doc.payment_term_text_printed"/></td>
+                    </tr>
+                    <tr>
+                        <th>PR Approval Date</th>
+                        <td><span t-out="doc.client_pr_approval_date or ''"/></td>
+                        <th>Delivery Term</th>
+                        <td><span t-out="doc.delivery_term_printed or doc.incoterm.code or ''"/></td>
+                    </tr>
+                    <tr>
+                        <th>Buyer</th>
+                        <td><span t-out="doc.client_buyer_name_printed or doc.client_buyer_id.name or ''"/></td>
+                        <th>Delivery Time</th>
+                        <td><span t-field="doc.delivery_time_printed"/></td>
+                    </tr>
+                    <tr>
+                        <th>Requester</th>
+                        <td><span t-out="doc.client_requester_name_printed or doc.client_requester_id.name or ''"/></td>
+                        <th>Delivery Location</th>
+                        <td><span t-field="doc.delivery_location_printed"/></td>
+                    </tr>
+                    <tr>
+                        <th>Requester Dept.</th>
+                        <td><span t-field="doc.client_requester_dept"/></td>
+                        <th>Po Type</th>
+                        <td><span t-field="doc.client_po_type"/></td>
+                    </tr>
+                    <tr>
+                        <th>Penalty</th>
+                        <td colspan="3"><span t-field="doc.penalty_text_printed"/></td>
+                    </tr>
+                </table>
+
+                <!-- Lines -->
+                <table class="table table-sm table-bordered mb-2" name="po_lines">
+                    <thead>
+                        <tr>
+                            <th>S. No.</th>
+                            <th>Item code</th>
+                            <th>Item Description</th>
+                            <th>UOM</th>
+                            <th class="text-end">Qty</th>
+                            <th class="text-end">Unit price</th>
+                            <th class="text-end">Total amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="items" t-as="line">
+                            <td><span t-out="line.client_line_no or ''"/></td>
+                            <td><span t-out="line.client_item_code or ''"/></td>
+                            <td><span t-out="line.description_printed or line.label"/></td>
+                            <td><span t-out="line.uom_printed or line.product_uom_id.name"/></td>
+                            <td class="text-end"><span t-out="'%g' % line.product_uom_qty"/></td>
+                            <!-- Python string formatting: 6 decimals, as on the PO. -->
+                            <td class="text-end"><span t-out="'%.6f' % line.price_unit"/></td>
+                            <td class="text-end">
+                                <span t-out="'{:,.2f}'.format(line.total_printed)"/>
+                                <!-- Flag a line whose printed total is not qty x price. -->
+                                <strong t-if="not line.line_total_match" class="text-danger"> (!)</strong>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Totals as printed -->
+                <div class="row">
+                    <div class="col-6">
+                        <div t-if="not doc.totals_match" class="text-danger fw-bold">
+                            Check: printed totals differ from the computed totals
+                            (untaxed <span t-out="'{:,.2f}'.format(doc.amount_untaxed)"/>,
+                            tax <span t-out="'{:,.2f}'.format(doc.amount_tax)"/>,
+                            total <span t-out="'{:,.2f}'.format(doc.amount_total)"/>).
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <table class="table table-sm table-bordered" name="po_totals">
+                            <tr>
+                                <th>Total PO Amount</th>
+                                <td class="text-end"><span t-out="'{:,.2f}'.format(doc.total_po_amount_printed)"/></td>
+                            </tr>
+                            <tr>
+                                <th>Tax Table</th>
+                                <td class="text-end"><span t-out="'%g' % doc.tax_table_printed"/></td>
+                            </tr>
+                            <tr>
+                                <th>Tax VAT</th>
+                                <td class="text-end"><span t-out="'%.4f' % doc.tax_vat_printed"/></td>
+                            </tr>
+                            <tr>
+                                <th>PO Grand Total</th>
+                                <td class="text-end"><span t-out="'{:,.2f}'.format(doc.grand_total_printed)"/></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                <p t-if="doc.grand_total_words_printed">
+                    <span t-field="doc.grand_total_words_printed"/>
+                </p>
+
+                <!-- Page 2 of the original -->
+                <div style="page-break-before: always;"/>
+
+                <h5>Notes to Supplier</h5>
+                <!-- t-field on a Text field keeps the line breaks. -->
+                <div class="mb-3" t-field="doc.notes_to_supplier_printed"/>
+
+                <h5>Payment Terms</h5>
+                <div class="mb-3" t-field="doc.payment_terms_text_printed"/>
+
+                <h5>Delivery Terms</h5>
+                <div class="mb-3" t-field="doc.delivery_terms_text_printed"/>
+
+                <h5>Warranty</h5>
+                <div class="mb-3" t-field="doc.warranty_text_printed"/>
+
+                <h5>Approval</h5>
+                <table class="table table-sm table-borderless mb-3" name="po_approval">
+                    <tr>
+                        <th style="width: 25%;">Approved by</th>
+                        <td><span t-out="doc.approved_by_name or '(signature illegible / not recorded)'"/></td>
+                    </tr>
+                    <tr>
+                        <th>Department (stamp)</th>
+                        <td><span t-field="doc.approved_by_department"/></td>
+                    </tr>
+                    <tr>
+                        <th>Client stamp</th>
+                        <td><span t-out="'Present' if doc.client_stamp_present else 'Not present'"/></td>
+                    </tr>
+                    <tr t-if="doc.other_stamps_note">
+                        <th>Other stamps</th>
+                        <td><span t-field="doc.other_stamps_note"/></td>
+                    </tr>
+                    <tr t-if="doc.handwritten_marks">
+                        <th>Handwritten marks</th>
+                        <td><span t-field="doc.handwritten_marks"/></td>
+                    </tr>
+                    <tr t-if="doc.annex_reference">
+                        <th>Annex</th>
+                        <td><span t-field="doc.annex_reference"/></td>
+                    </tr>
+                </table>
+
+                <div class="border-top pt-2" t-field="doc.invoice_submission_text_printed"/>
+                <div class="mt-2 text-muted">
+                    Printed Date: <span t-field="doc.client_po_printed_datetime"/>
+                    <t t-if="doc.client_po_page_count">
+                        | Pages in the original: <span t-out="doc.client_po_page_count"/>
+                    </t>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="report_client_po">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-call="procurement_custom.report_client_po_document"/>
+            </t>
+        </t>
+    </template>
+</odoo>

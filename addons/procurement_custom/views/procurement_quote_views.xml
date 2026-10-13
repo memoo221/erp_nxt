@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        COMPARISON SCREEN
+        A list of quotes, grouped by item. Each item becomes a group header and
+        its vendor quotes are the rows under it, cheapest first, so vendor and
+        price of all quotes for an item sit directly under each other.
+        The list is editable: a quoted price is typed straight into the row.
+    -->
+    <record id="view_procurement_quote_list" model="ir.ui.view">
+        <field name="name">procurement.quote.list</field>
+        <field name="model">procurement.quote</field>
+        <field name="arch" type="xml">
+            <!-- decoration-*: colour a row when the expression is true. -->
+            <list editable="bottom"
+                  default_order="order_id desc, client_line_no, price_order_currency"
+                  decoration-success="is_lowest and state != 'rejected'"
+                  decoration-muted="state == 'rejected'"
+                  decoration-bf="state == 'chosen'">
+                <field name="order_id" optional="show" readonly="1"/>
+                <field name="client_line_no" readonly="1"/>
+                <field name="sale_line_id" readonly="id" options="{'no_create': True}"/>
+                <field name="client_item_code" optional="show"/>
+                <field name="product_uom_qty" optional="show"/>
+                <field name="product_uom_id" optional="hide"/>
+                <field name="vendor_id" readonly="id"
+                       context="{'res_partner_search_mode': 'supplier', 'default_supplier_rank': 1, 'default_is_company': True}"/>
+                <field name="quoted_price" readonly="state == 'chosen'"/>
+                <field name="currency_id" optional="show" options="{'no_create': True}"
+                       readonly="state == 'chosen'"/>
+                <field name="price_order_currency" optional="hide"/>
+                <field name="order_currency_id" column_invisible="True"/>
+                <field name="quote_date" optional="show"/>
+                <field name="is_lowest" widget="boolean_toggle" readonly="1" optional="show"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'requested'"
+                       decoration-warning="state == 'quoted'"
+                       decoration-success="state == 'chosen'"
+                       decoration-danger="state == 'rejected'"/>
+                <field name="notes" optional="show"/>
+                <button name="action_choose" type="object" string="Choose"
+                        class="btn-primary" icon="fa-check"
+                        invisible="state == 'chosen' or not quoted_price"/>
+                <button name="action_reset" type="object" string="Undo"
+                        icon="fa-undo" invisible="state != 'chosen'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- The same data as a matrix: items down, vendors across, price in the
+         cells. Read-only (pivot cells cannot hold buttons); used for a glance. -->
+    <record id="view_procurement_quote_pivot" model="ir.ui.view">
+        <field name="name">procurement.quote.pivot</field>
+        <field name="model">procurement.quote</field>
+        <field name="arch" type="xml">
+            <pivot string="Quote Matrix" disable_linking="True">
+                <field name="sale_line_id" type="row"/>
+                <field name="vendor_id" type="col"/>
+                <field name="price_order_currency" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_procurement_quote_form" model="ir.ui.view">
+        <field name="name">procurement.quote.form</field>
+        <field name="model">procurement.quote</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_choose" type="object" string="Choose"
+                            class="btn-primary"
+                            invisible="state == 'chosen' or not quoted_price"/>
+                    <button name="action_reset" type="object" string="Undo Choice"
+                            invisible="state != 'chosen'"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="requested,quoted,chosen"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group string="Item">
+                            <field name="order_id"/>
+                            <field name="sale_line_id" readonly="id" options="{'no_create': True}"/>
+                            <field name="client_line_no"/>
+                            <field name="client_item_code"/>
+                            <field name="product_uom_qty"/>
+                            <field name="product_uom_id"/>
+                        </group>
+                        <group string="Quote">
+                            <field name="vendor_id" readonly="id"/>
+                            <field name="quoted_price"/>
+                            <field name="currency_id" options="{'no_create': True}"/>
+                            <field name="price_order_currency"
+                                   invisible="currency_id == order_currency_id"/>
+                            <field name="order_currency_id" invisible="1"/>
+                            <field name="quote_date"/>
+                            <field name="is_lowest"/>
+                            <field name="notes"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- The search view defines the search box, the filters and "group by". -->
+    <record id="view_procurement_quote_search" model="ir.ui.view">
+        <field name="name">procurement.quote.search</field>
+        <field name="model">procurement.quote</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="order_id"/>
+                <field name="vendor_id"/>
+                <field name="sale_line_id"/>
+                <filter name="filter_requested" string="Waiting for Price"
+                        domain="[('state', '=', 'requested')]"/>
+                <filter name="filter_quoted" string="Quoted"
+                        domain="[('state', '=', 'quoted')]"/>
+                <filter name="filter_chosen" string="Chosen"
+                        domain="[('state', '=', 'chosen')]"/>
+                <filter name="filter_lowest" string="Lowest Price"
+                        domain="[('is_lowest', '=', True)]"/>
+                <group>
+                    <filter name="group_order" string="Client PO"
+                            context="{'group_by': 'order_id'}"/>
+                    <filter name="group_item" string="Item"
+                            context="{'group_by': 'sale_line_id'}"/>
+                    <filter name="group_vendor" string="Vendor"
+                            context="{'group_by': 'vendor_id'}"/>
+                    <filter name="group_state" string="Status"
+                            context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- A window action = "open this model with these views". Menus and
+         buttons point at actions. search_default_<filter name> switches a
+         filter of the search view on when the action opens. -->
+    <record id="action_procurement_quote" model="ir.actions.act_window">
+        <field name="name">Quotes</field>
+        <field name="res_model">procurement.quote</field>
+        <field name="view_mode">list,pivot,form</field>
+        <field name="context">{'search_default_group_order': 1, 'search_default_group_item': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No vendor quotes yet</p>
+            <p>Open a client PO and click "Request Quotes" to ask vendors for prices.</p>
+        </field>
+    </record>
+</odoo>

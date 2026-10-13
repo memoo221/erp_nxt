@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- A menuitem without a parent is a top-level app in the main menu.
+         `groups` hides it from users who are not in the Sales user group. -->
+    <menuitem id="menu_procurement_root" name="Procurement" sequence="25"
+              groups="sales_team.group_sale_salesman"/>
+
+    <menuitem id="menu_procurement_client_po" name="Client POs"
+              parent="menu_procurement_root" action="action_client_po" sequence="10"/>
+    <menuitem id="menu_procurement_quote" name="Quotes"
+              parent="menu_procurement_root" action="action_procurement_quote" sequence="20"/>
+    <menuitem id="menu_procurement_purchase" name="Purchases"
+              parent="menu_procurement_root" action="action_procurement_purchase" sequence="30"/>
+    <menuitem id="menu_procurement_vendor" name="Vendors"
+              parent="menu_procurement_root" action="action_procurement_vendor" sequence="40"/>
+</odoo>

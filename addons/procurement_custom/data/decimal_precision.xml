@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        "Product Price" is a decimal.precision record created by the `product`
+        module (2 decimals by default). Fields that declare
+        digits="Product Price" follow it. Client POs print unit prices with 6
+        decimals (e.g. 7692.280000), so we raise it to 6.
+
+        We do not redefine the record (it belongs to another module); we call
+        its write() method. noupdate="1" makes this run only when the module is
+        INSTALLED, not at every upgrade, so a value an administrator changes
+        later in Settings is not overwritten.
+    -->
+    <data noupdate="1">
+        <function model="decimal.precision" name="write">
+            <value eval="[ref('product.decimal_price')]"/>
+            <value eval="{'digits': 6}"/>
+        </function>
+    </data>
+</odoo>

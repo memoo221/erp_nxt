@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        A report action links a model to a QWeb template:
+          report_name       = the template's full id (module.template_id)
+          binding_model_id  = adds the report to that model's Print menu
+          print_report_name = Python expression for the PDF file name
+    -->
+    <record id="action_report_client_status" model="ir.actions.report">
+        <field name="name">Client Status Report</field>
+        <field name="model">sale.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">procurement_custom.report_client_status</field>
+        <field name="print_report_name">'Status - PO %s' % (object.client_order_ref or object.name)</field>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <record id="action_report_internal_status" model="ir.actions.report">
+        <field name="name">Internal Procurement Report</field>
+        <field name="model">sale.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">procurement_custom.report_internal_status</field>
+        <field name="print_report_name">'INTERNAL - PO %s' % (object.client_order_ref or object.name)</field>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <record id="action_report_client_po" model="ir.actions.report">
+        <field name="name">Client PO (as registered)</field>
+        <field name="model">sale.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">procurement_custom.report_client_po</field>
+        <field name="print_report_name">'Client PO %s (registered data)' % (object.client_order_ref or object.name)</field>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <record id="action_report_quote_request" model="ir.actions.report">
+        <field name="name">Quote Request (per vendor)</field>
+        <field name="model">procurement.quote</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">procurement_custom.report_quote_request</field>
+        <field name="print_report_name">'Quote Requests'</field>
+        <field name="binding_model_id" ref="model_procurement_quote"/>
+        <field name="binding_type">report</field>
+    </record>
+</odoo>

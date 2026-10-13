@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        QWEB BASICS
+        A <template> is HTML with t-* attributes that Odoo evaluates:
+          t-foreach / t-as : loop                t-if : condition
+          t-field          : print a record's field, formatted by its type
+          t-out            : print the result of a Python expression
+          t-call           : include another template
+          t-set            : define a variable
+        A report template receives `docs`: the records being printed.
+
+        The client report and the internal report share ONE body template.
+        The variable `internal` decides whether the confidential columns
+        (vendor, cost, margin) exist at all in the output.
+    -->
+    <template id="report_status_document">
+        <!-- external_layout adds our company's header and footer. -->
+        <t t-call="web.external_layout">
+            <t t-set="items" t-value="doc.order_line.filtered(lambda l: not l.display_type)"/>
+            <div class="page">
+                <h3 t-if="internal">Internal Procurement Report</h3>
+                <h3 t-else="">Order Status Report</h3>
+                <p t-if="internal" class="text-danger fw-bold">
+                    CONFIDENTIAL: internal use only. Do not send to the client.
+                </p>
+
+                <table class="table table-sm table-borderless mb-3" style="width: 60%;">
+                    <tr>
+                        <td class="fw-bold">Client</td>
+                        <td><span t-field="doc.partner_id.name"/></td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold">PO No.</td>
+                        <td><span t-field="doc.client_order_ref"/></td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold">PR No.</td>
+                        <td><span t-field="doc.client_pr_number"/></td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold">Report Date</td>
+                        <td><span t-out="context_timestamp(datetime.datetime.now()).strftime('%Y-%m-%d')"/></td>
+                    </tr>
+                </table>
+
+                <p t-if="not internal">
+                    We have obtained the following items in the quantities shown.
+                </p>
+
+                <table class="table table-sm" name="status_lines">
+                    <thead>
+                        <tr>
+                            <th>S. No.</th>
+                            <th>Item Code</th>
+                            <th>Description</th>
+                            <th>UOM</th>
+                            <th class="text-end">Qty Ordered</th>
+                            <th class="text-end">Qty Obtained</th>
+                            <th>Status</th>
+                            <t t-if="internal">
+                                <th>Chosen Vendor</th>
+                                <th class="text-end">Client Price</th>
+                                <th class="text-end">Avg. Purchase Price</th>
+                                <th class="text-end">Margin</th>
+                            </t>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="items.sorted(lambda l: (l.client_line_no, l.sequence, l.id))" t-as="line">
+                            <td><span t-out="line.client_line_no or ''"/></td>
+                            <td><span t-out="line.client_item_code or line.product_id.default_code or ''"/></td>
+                            <td><span t-out="line.description_printed or line.label"/></td>
+                            <td><span t-out="line.uom_printed or line.product_uom_id.name"/></td>
+                            <td class="text-end"><span t-out="'%g' % line.product_uom_qty"/></td>
+                            <td class="text-end"><span t-out="'%g' % line.qty_obtained"/></td>
+                            <td><span t-field="line.procurement_status"/></td>
+                            <t t-if="internal">
+                                <td><span t-field="line.chosen_vendor_id.name"/></td>
+                                <td class="text-end"><span t-out="'%.6f' % line.price_unit"/></td>
+                                <td class="text-end">
+                                    <span t-if="line.qty_obtained" t-out="'%.6f' % line.avg_purchase_price"/>
+                                </td>
+                                <td class="text-end">
+                                    <span t-if="line.qty_obtained" t-field="line.margin_amount"/>
+                                </td>
+                            </t>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p>
+                    <strong>
+                        <span t-out="doc.items_obtained_count"/> of
+                        <span t-out="doc.item_count"/> items fully obtained.
+                    </strong>
+                </p>
+                <p t-if="internal">
+                    Total margin on quantities obtained so far:
+                    <strong t-out="sum(items.mapped('margin_amount'))"
+                            t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                    (amounts in <span t-field="doc.currency_id.name"/>).
+                </p>
+            </div>
+        </t>
+    </template>
+
+    <!-- What the client receives: no vendor, no cost, no margin. -->
+    <template id="report_client_status">
+        <!-- html_container wraps the whole document (<html>, CSS...). -->
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="internal" t-value="False"/>
+                <t t-call="procurement_custom.report_status_document"/>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_internal_status">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="internal" t-value="True"/>
+                <t t-call="procurement_custom.report_status_document"/>
+            </t>
+        </t>
+    </template>
+</odoo>

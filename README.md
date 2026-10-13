@@ -21,6 +21,19 @@ docker-compose.yml      the two services: db and odoo
 .vscode/                editor settings and the debugger attach configuration
 ```
 
+The module is `addons/procurement_custom`:
+
+```
+models/      sale.order / sale.order.line extensions, milestones, delivery
+             groups, vendor quotes, purchases
+wizard/      the "Request Quotes" dialog
+views/       forms, lists, the quote comparison screen, menus
+report/      QWeb PDF reports (client status, internal, PO reproduction,
+             vendor quote request)
+security/    ir.access.csv: who may read / create / update / delete what
+data/        unit price precision (6 decimals)
+```
+
 Odoo's own source code is **not** in this repository and is never edited.
 All customisation lives in `addons/` and uses Odoo's inheritance mechanisms.
 

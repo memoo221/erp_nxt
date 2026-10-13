@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        VIEW INHERITANCE
+        This record does not define a new form. `inherit_id` says "start from
+        the standard sales order form" and each <xpath> below is one edit
+        instruction: find a node (expr) and insert our XML relative to it
+        (position = inside / after / before / replace / attributes).
+        Odoo applies every module's instructions on top of the original each
+        time the form is opened, so the original file is never changed.
+    -->
+    <record id="view_order_form_client_po" model="ir.ui.view">
+        <field name="name">sale.order.form.client.po</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <!-- 1. Buttons in the top bar -->
+            <xpath expr="//header" position="inside">
+                <button name="action_request_quotes" type="object" string="Request Quotes"
+                        class="btn-primary" invisible="not is_client_po or not id"/>
+                <button name="action_view_quotes" type="object" string="Compare Quotes"
+                        invisible="not is_client_po or quote_count == 0"/>
+                <button name="action_print_quote_requests" type="object"
+                        string="Print Quote Requests"
+                        invisible="not is_client_po or quote_count == 0"/>
+            </xpath>
+
+            <!-- 2. Warning banners above the sheet.
+                 `invisible` is a Python-like expression evaluated in the
+                 browser with the current record's field values. -->
+            <xpath expr="//sheet" position="before">
+                <div class="alert alert-warning mb-0" role="alert"
+                     invisible="not is_client_po or totals_match">
+                    <strong>Totals do not match the client's PO.</strong>
+                    Printed: total <field name="total_po_amount_printed" readonly="1"/>,
+                    tax table <field name="tax_table_printed" readonly="1"/>,
+                    VAT <field name="tax_vat_printed" readonly="1"/>,
+                    grand total <field name="grand_total_printed" readonly="1"/>.
+                    Computed: untaxed <field name="amount_untaxed" readonly="1"/>,
+                    tax <field name="amount_tax" readonly="1"/>,
+                    total <field name="amount_total" readonly="1"/>.
+                </div>
+                <div class="alert alert-warning mb-0" role="alert"
+                     invisible="not is_client_po or lines_total_mismatch_count == 0">
+                    <field name="lines_total_mismatch_count" readonly="1"/> line(s) have a
+                    printed total that differs from quantity x unit price
+                    (see the "Total Matches" column).
+                </div>
+            </xpath>
+
+            <!-- 3. Smart buttons (top right of the sheet) -->
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_quotes" type="object" class="oe_stat_button"
+                        icon="fa-balance-scale" invisible="not is_client_po">
+                    <field name="quote_count" widget="statinfo" string="Quotes"/>
+                </button>
+                <button name="action_view_purchases" type="object" class="oe_stat_button"
+                        icon="fa-truck" invisible="not is_client_po">
+                    <field name="purchase_count" widget="statinfo" string="Purchases"/>
+                </button>
+            </xpath>
+
+            <xpath expr="//group[@name='order_details']" position="inside">
+                <field name="is_client_po"/>
+            </xpath>
+
+            <!-- 4. Extra columns in the order lines table.
+                 column_invisible hides a whole column; `parent` is the order. -->
+            <xpath expr="//field[@name='order_line']/list/field[@name='sequence']" position="after">
+                <field name="client_line_no" string="S. No." width="60px"
+                       column_invisible="not parent.is_client_po"/>
+                <field name="client_item_code" optional="show"
+                       column_invisible="not parent.is_client_po"/>
+                <field name="description_printed" optional="hide"
+                       column_invisible="not parent.is_client_po"/>
+                <field name="uom_printed" optional="hide"
+                       column_invisible="not parent.is_client_po"/>
+            </xpath>
+            <xpath expr="//field[@name='order_line']/list" position="inside">
+                <field name="total_printed" optional="show"
+                       column_invisible="not parent.is_client_po"/>
+                <field name="line_total_match" optional="show"
+                       column_invisible="not parent.is_client_po"/>
+                <field name="delivery_group_id" optional="show"
+                       domain="[('order_id', '=', parent.id)]"
+                       options="{'no_create': True}"
+                       column_invisible="not parent.is_client_po"/>
+                <field name="chosen_vendor_id" optional="hide"
+                       column_invisible="not parent.is_client_po"/>
+                <field name="qty_obtained" optional="show"
+                       column_invisible="not parent.is_client_po"/>
+                <field name="qty_remaining" optional="hide"
+                       column_invisible="not parent.is_client_po"/>
+                <field name="avg_purchase_price" optional="hide"
+                       column_invisible="not parent.is_client_po"/>
+                <field name="margin_amount" optional="hide"
+                       column_invisible="not parent.is_client_po"/>
+                <field name="procurement_status" optional="show" widget="badge"
+                       decoration-muted="procurement_status == 'not_quoted'"
+                       decoration-info="procurement_status == 'quoted'"
+                       decoration-primary="procurement_status == 'vendor_chosen'"
+                       decoration-warning="procurement_status == 'partially_obtained'"
+                       decoration-success="procurement_status == 'obtained'"
+                       column_invisible="not parent.is_client_po"/>
+            </xpath>
+
+            <!-- 5. A new tab holding everything printed on the client's PO,
+                 in sections that follow the layout of the PDF. -->
+            <xpath expr="//page[@name='order_lines']" position="after">
+                <page string="Client PO" name="client_po" invisible="not is_client_po">
+
+                    <group string="Procurement Progress" col="4">
+                        <field name="item_count"/>
+                        <field name="items_chosen_count"/>
+                        <field name="items_obtained_count"/>
+                        <field name="progress_percent" widget="progressbar"/>
+                    </group>
+
+                    <group string="Client PO Header">
+                        <group>
+                            <field name="client_order_ref" string="PO No."/>
+                            <field name="client_po_date"/>
+                            <field name="client_po_approval_date"/>
+                            <field name="client_pr_number"/>
+                            <field name="client_pr_approval_date"/>
+                            <field name="client_po_type"/>
+                            <field name="rfp_reference"/>
+                            <!-- An order's currency comes from its pricelist. For a PO
+                                 in USD, pick (or create) a pricelist whose currency is USD. -->
+                            <field name="pricelist_id" string="Pricelist (sets currency)"/>
+                            <field name="currency_id" string="Currency"/>
+                        </group>
+                        <group>
+                            <!-- default_parent_id: a buyer created from here is
+                                 saved as a contact under the client. -->
+                            <field name="client_buyer_id"
+                                   context="{'default_parent_id': partner_id, 'default_type': 'contact'}"/>
+                            <field name="client_buyer_name_printed"/>
+                            <field name="client_requester_id"
+                                   context="{'default_parent_id': partner_id, 'default_type': 'contact'}"/>
+                            <field name="client_requester_name_printed"/>
+                            <field name="client_requester_dept"/>
+                            <field name="penalty_text_printed"/>
+                            <field name="penalty_rate_weekly"/>
+                            <field name="penalty_cap"/>
+                            <field name="penalty_base"/>
+                        </group>
+                    </group>
+
+                    <group string="Client &amp; Supplier Blocks">
+                        <group string="Client letterhead">
+                            <field name="client_name_printed"/>
+                            <field name="client_address_printed"/>
+                            <field name="client_po_box"/>
+                            <field name="client_phone_printed"/>
+                            <field name="client_fax_printed"/>
+                        </group>
+                        <group string="Supplier (as the client printed us)">
+                            <field name="supplier_name_printed"/>
+                            <field name="supplier_address_printed"/>
+                            <field name="company_id" string="Our Company" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <group string="Payment Terms">
+                        <group>
+                            <field name="payment_term_text_printed"/>
+                            <field name="payment_term_id"/>
+                            <field name="payment_currency_id" options="{'no_create': True}"/>
+                            <field name="exchange_rate_rule"/>
+                            <field name="payment_counter_start"/>
+                        </group>
+                        <group>
+                            <field name="lg_release_condition"/>
+                            <field name="partial_invoicing_allowed"/>
+                            <field name="pac_fac_applied"/>
+                            <field name="advance_payment_received_date"/>
+                        </group>
+                    </group>
+                    <!-- One2many edited in place. widget="handle" on `sequence`
+                         gives drag-and-drop ordering. -->
+                    <field name="payment_milestone_ids">
+                        <list editable="bottom">
+                            <field name="sequence" widget="handle"/>
+                            <field name="name"/>
+                            <field name="percent" sum="Total %"/>
+                            <field name="trigger"/>
+                            <field name="requires_lg"/>
+                            <field name="lg_type"/>
+                            <field name="collection_days"/>
+                            <field name="notes"/>
+                        </list>
+                    </field>
+                    <label for="payment_terms_text_printed"/>
+                    <field name="payment_terms_text_printed"
+                           placeholder="Payment terms exactly as printed on the PO"/>
+
+                    <group string="Delivery Terms">
+                        <group>
+                            <field name="incoterm" string="Delivery Term (Incoterm)"/>
+                            <field name="delivery_term_printed"/>
+                            <field name="delivery_time_printed"/>
+                        </group>
+                        <group>
+                            <field name="delivery_location_printed"/>
+                            <field name="partner_shipping_id"/>
+                            <field name="delivery_destination_printed"/>
+                        </group>
+                    </group>
+                    <field name="delivery_group_ids">
+                        <list editable="bottom">
+                            <field name="sequence" widget="handle"/>
+                            <field name="name"/>
+                            <field name="description" optional="show"/>
+                            <field name="immediate_batch"/>
+                            <field name="immediate_batch_weeks"
+                                   invisible="not immediate_batch"/>
+                            <field name="min_months"/>
+                            <field name="max_months"/>
+                            <field name="start_event" optional="show"/>
+                            <field name="boq_reference"/>
+                            <field name="line_count"/>
+                            <field name="immediate_batch_deadline"/>
+                            <field name="final_deadline"/>
+                        </list>
+                    </field>
+                    <label for="delivery_terms_text_printed"/>
+                    <field name="delivery_terms_text_printed"
+                           placeholder="Delivery terms exactly as printed on the PO"/>
+
+                    <group string="Warranty">
+                        <group>
+                            <field name="warranty_months"/>
+                            <field name="warranty_start"/>
+                        </group>
+                        <group>
+                            <field name="warranty_scope"/>
+                            <field name="warranty_reference"/>
+                        </group>
+                    </group>
+                    <label for="warranty_text_printed"/>
+                    <field name="warranty_text_printed"
+                           placeholder="Warranty clause exactly as printed on the PO"/>
+
+                    <group string="Approval &amp; Document">
+                        <group>
+                            <field name="notes_to_supplier_printed"/>
+                            <field name="annex_reference"/>
+                            <field name="approved_by_name"/>
+                            <field name="approved_by_department"/>
+                            <field name="client_stamp_present"/>
+                            <field name="other_stamps_note"/>
+                            <field name="handwritten_marks"/>
+                        </group>
+                        <group>
+                            <field name="invoice_submission_days"/>
+                            <field name="invoice_submission_location"/>
+                            <field name="invoice_submission_hour_from" widget="float_time"/>
+                            <field name="invoice_submission_hour_to" widget="float_time"/>
+                            <field name="client_po_printed_datetime"/>
+                            <field name="client_po_page_count"/>
+                            <field name="client_po_document_id"
+                                   options="{'no_create': True}"/>
+                            <field name="date_order" string="Registered by Us On" readonly="1"/>
+                        </group>
+                    </group>
+                    <label for="invoice_submission_text_printed"/>
+                    <field name="invoice_submission_text_printed"
+                           placeholder="Footer line about invoices and checks, as printed"/>
+
+                    <group string="Totals as Printed">
+                        <group string="Printed on the PO">
+                            <field name="total_po_amount_printed"/>
+                            <field name="tax_table_printed"/>
+                            <field name="tax_vat_printed"/>
+                            <field name="grand_total_printed"/>
+                            <field name="grand_total_words_printed"/>
+                        </group>
+                        <group string="Computed by Odoo">
+                            <field name="amount_untaxed" string="Untaxed Amount"/>
+                            <field name="amount_tax" string="Taxes"/>
+                            <field name="amount_total" string="Total"/>
+                            <field name="totals_match"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- A list made for client POs. It is used only by our own menu action
+         (see below), so the standard Sales lists stay as they are. -->
+    <record id="view_client_po_list" model="ir.ui.view">
+        <field name="name">sale.order.list.client.po</field>
+        <field name="model">sale.order</field>
+        <!-- A high priority number = never picked as the default list view. -->
+        <field name="priority">50</field>
+        <field name="arch" type="xml">
+            <list decoration-warning="not totals_match">
+                <field name="name" string="Our Ref."/>
+                <field name="client_order_ref" string="PO No."/>
+                <field name="partner_id" string="Client"/>
+                <field name="client_po_date"/>
+                <field name="client_pr_number" optional="show"/>
+                <field name="amount_total" sum="Total"/>
+                <field name="currency_id" column_invisible="True"/>
+                <field name="totals_match" optional="show"/>
+                <field name="item_count"/>
+                <field name="items_chosen_count" optional="show"/>
+                <field name="items_obtained_count"/>
+                <field name="progress_percent" widget="progressbar"/>
+                <field name="state" widget="badge" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_client_po" model="ir.actions.act_window">
+        <field name="name">Client POs</field>
+        <field name="res_model">sale.order</field>
+        <field name="view_mode">list,form</field>
+        <!-- domain: which records are shown. context: defaults for new ones. -->
+        <field name="domain">[('is_client_po', '=', True)]</field>
+        <field name="context">{'default_is_client_po': True}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Register a client PO</p>
+            <p>Enter the purchase order received from the client, exactly as printed.</p>
+        </field>
+    </record>
+    <!-- Tie our list to the action; the form is the standard (extended) one. -->
+    <record id="action_client_po_view_list" model="ir.actions.act_window.view">
+        <field name="sequence">1</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_client_po_list"/>
+        <field name="act_window_id" ref="action_client_po"/>
+    </record>
+    <record id="action_client_po_view_form" model="ir.actions.act_window.view">
+        <field name="sequence">2</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="sale.view_order_form"/>
+        <field name="act_window_id" ref="action_client_po"/>
+    </record>
+
+    <record id="action_procurement_vendor" model="ir.actions.act_window">
+        <field name="name">Vendors</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="domain">[('supplier_rank', '>', 0)]</field>
+        <!-- A contact created from this menu is flagged as a vendor. -->
+        <field name="context">{'res_partner_search_mode': 'supplier', 'default_supplier_rank': 1, 'default_is_company': True}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add a vendor</p>
+            <p>Vendors are the companies NXTVOLT asks for quotes and buys from.</p>
+        </field>
+    </record>
+</odoo>
