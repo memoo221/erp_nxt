@@ -25,11 +25,13 @@ class ProcurementPurchase(models.Model):
         related="sale_line_id.order_id", string="Client PO", store=True, index=True
     )
     client_line_no = fields.Integer(
-        related="sale_line_id.client_line_no", string="S. No.", store=True
+        related="sale_line_id.client_line_no", string="S. No.", store=True, aggregator=None
     )
     client_item_code = fields.Char(related="sale_line_id.client_item_code")
     product_uom_id = fields.Many2one(related="sale_line_id.product_uom_id", string="UoM")
-    qty_ordered = fields.Float(related="sale_line_id.product_uom_qty", string="Qty Ordered")
+    qty_ordered = fields.Float(
+        related="sale_line_id.product_uom_qty", string="Qty Ordered", aggregator=None
+    )
 
     # The next three fields use the same pattern: compute + store +
     # readonly=False. When the item is picked, Odoo proposes the values of the
@@ -52,6 +54,7 @@ class ProcurementPurchase(models.Model):
     )
     purchase_price = fields.Monetary(
         string="Purchase Unit Price",
+        aggregator="avg",
         compute="_compute_purchase_price",
         store=True,
         readonly=False,

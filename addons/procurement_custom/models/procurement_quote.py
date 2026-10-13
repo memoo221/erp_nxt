@@ -32,14 +32,17 @@ class ProcurementQuote(models.Model):
     order_id = fields.Many2one(
         related="sale_line_id.order_id", string="Client PO", store=True, index=True
     )
+    # aggregator: what a grouped list shows in the group's summary row.
+    # Numbers are summed by default, which is meaningless for a line number
+    # or for a quantity repeated on every quote, so it is switched off.
     client_line_no = fields.Integer(
-        related="sale_line_id.client_line_no", string="S. No.", store=True
+        related="sale_line_id.client_line_no", string="S. No.", store=True, aggregator=None
     )
     client_item_code = fields.Char(related="sale_line_id.client_item_code")
     product_id = fields.Many2one(related="sale_line_id.product_id")
     item_description = fields.Text(related="sale_line_id.label", string="Description")
     product_uom_qty = fields.Float(
-        related="sale_line_id.product_uom_qty", string="Qty Ordered"
+        related="sale_line_id.product_uom_qty", string="Qty Ordered", aggregator=None
     )
     product_uom_id = fields.Many2one(related="sale_line_id.product_uom_id", string="UoM")
 
@@ -64,7 +67,8 @@ class ProcurementQuote(models.Model):
     )
     # A Monetary field is a number shown with a currency symbol. It needs a
     # companion Many2one to res.currency; by convention named `currency_id`.
-    quoted_price = fields.Monetary(string="Quoted Unit Price")
+    # aggregator="min": the summary row of an item shows its LOWEST quote.
+    quoted_price = fields.Monetary(string="Quoted Unit Price", aggregator="min")
     currency_id = fields.Many2one(
         comodel_name="res.currency",
         string="Currency",
@@ -87,6 +91,7 @@ class ProcurementQuote(models.Model):
         currency_field="order_currency_id",
         compute="_compute_price_order_currency",
         store=True,
+        aggregator="min",
     )
     order_currency_id = fields.Many2one(
         related="sale_line_id.currency_id", string="PO Currency"
