@@ -1,0 +1,35 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            // Attaches to the debugpy server that runs inside the odoo container
+            // (published on localhost:5678 by docker-compose.yml).
+            "name": "Attach to Odoo (Docker)",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            // The container sees files under Linux paths, VS Code under Windows
+            // paths. These pairs translate between the two so breakpoints land
+            // on the right file.
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}/addons",
+                    "remoteRoot": "/mnt/extra-addons"
+                },
+                // Odoo framework + base module (to step into the ORM).
+                {
+                    "localRoot": "D:/odoo-src/20.0/odoo",
+                    "remoteRoot": "/usr/lib/python3/dist-packages/odoo"
+                }
+            ],
+            // false = also allow stepping into Odoo's own code, not only ours.
+            "justMyCode": false,
+            // After an automatic reload Odoo 20 runs the server as a child
+            // process; this makes the debugger follow it.
+            "subProcess": true
+        }
+    ]
+}

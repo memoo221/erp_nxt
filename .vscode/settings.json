@@ -1,0 +1,20 @@
+{
+    // Lets Pylance resolve `import odoo`, `from odoo import models, fields, api`
+    // for autocomplete and go-to-definition. This is a shallow clone of the
+    // Odoo 20.0 source kept OUTSIDE the project; it is only read by the editor.
+    // The code that actually runs is the copy inside the Docker image.
+    "python.analysis.extraPaths": [
+        "D:/odoo-src/20.0"
+    ],
+    "files.associations": {
+        "odoo.conf": "ini"
+    },
+    "files.exclude": {
+        "**/__pycache__": true
+    },
+    // Odoo's own style: 4 spaces in Python and in XML.
+    "[xml]": {
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true
+    }
+}

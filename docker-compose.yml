@@ -1,0 +1,80 @@
+# Development stack: PostgreSQL 16 + Odoo Community 20.0.
+#
+# `name` fixes the Compose project name, so containers and volumes are called
+# nxtvolt-* no matter what the folder is called.
+name: nxtvolt
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      # Odoo creates its own databases, so it connects to the maintenance
+      # database "postgres" with a role that is allowed to CREATE DATABASE.
+      # The role named in POSTGRES_USER is a superuser, which covers that.
+      POSTGRES_DB: postgres
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+    volumes:
+      # Named volume: the data survives `docker compose down`.
+      # It is only deleted by `docker compose down -v`.
+      - db-data:/var/lib/postgresql/data
+    ports:
+      # Optional, for inspecting the database with a SQL client from Windows.
+      # Host port 5433 because 5432 is often taken by another PostgreSQL.
+      # 127.0.0.1 = reachable from this machine only.
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      # Odoo must not start before PostgreSQL accepts connections.
+      test: ["CMD-SHELL", "pg_isready -U odoo -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  odoo:
+    # Official odoo:20.0 image + debugpy (see docker/odoo/Dockerfile).
+    build: ./docker/odoo
+    image: nxtvolt-odoo:20.0
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # debugpy warns at every start that Python's "frozen" standard-library
+      # modules (os, codecs, ...) cannot take breakpoints. We only debug Odoo
+      # and our own code, so the warning is noise; this silences it.
+      PYDEVD_DISABLE_FILE_VALIDATION: "1"
+      # Folders whose changes are detected by polling instead of inotify.
+      # Needed because ./addons lives on a Windows drive, where the container
+      # receives no file-change events (see docker/odoo/nxtvolt_dev_watch.py).
+      ODOO_POLL_WATCH_PATHS: /mnt/extra-addons
+    ports:
+      - "127.0.0.1:8069:8069" # Odoo web client
+      - "127.0.0.1:5678:5678" # debugpy (VS Code "Attach to Odoo")
+    volumes:
+      # Our modules. /mnt/extra-addons is listed in addons_path in odoo.conf.
+      - ./addons:/mnt/extra-addons
+      # Server configuration, read-only so Odoo never rewrites the file in git.
+      - ./config/odoo.conf:/etc/odoo/odoo.conf:ro
+      # Filestore (attachments such as the scanned PO PDFs) and sessions.
+      - odoo-data:/var/lib/odoo
+    # The server is started under debugpy so a debugger can attach at any time
+    # (it does not wait for one). Odoo 20's reloader detects debugpy and keeps
+    # the debug session alive across automatic restarts.
+    #
+    # --dev=reload : restart the server when a .py file in an addons path changes
+    # --dev=xml    : read views/reports straight from the XML files instead of
+    #                the copy stored in the database, so XML edits show on refresh
+    # (--dev cannot be set in odoo.conf; it is a command-line-only option.)
+    command:
+      - python3
+      - -m
+      - debugpy
+      - --listen
+      - 0.0.0.0:5678
+      - /usr/bin/odoo
+      - --dev=reload,xml
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  odoo-data:

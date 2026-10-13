@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Odoo
+*.pot~
+*.po~
+filestore/
+sessions/
+
+# Local environment overrides and secrets
+.env
+.env.*
+!.env.example
+docker-compose.override.yml
+
+# Database dumps and backups (may contain client data)
+*.dump
+*.sql
+*.sql.gz
+backups/
+
+# Editors / OS
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# VS Code: keep the shared project settings, ignore everything else
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+
+# Logs
+*.log

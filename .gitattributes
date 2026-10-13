@@ -1,0 +1,6 @@
+# Files are edited on Windows but executed inside a Linux container.
+# Store and check out text with LF line endings so both sides agree.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.pdf binary
