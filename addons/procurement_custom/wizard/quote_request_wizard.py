@@ -76,25 +76,34 @@ class ProcurementQuoteRequestWizardLine(models.TransientModel):
         required=True,
         domain="[('supplier_rank', '>', 0)]",
     )
+    all_items = fields.Boolean(
+        string="All Items",
+        help="Tick to ask this vendor for every item of the PO.",
+    )
     # Many2many: a vendor row holds many items, and an item can be on many
     # vendor rows. Odoo stores the pairs in a separate link table.
     sale_line_ids = fields.Many2many(
         comodel_name="sale.order.line",
         string="Items",
+        # The dropdown only offers the items of THIS client PO.
         domain="[('order_id', '=', order_id), ('display_type', '=', False)]",
-        # Pre-filled with every item of the order (see the method below); the
-        # user removes the ones this vendor should not receive.
+        # Starts empty: the user picks items from the dropdown. Ticking
+        # "All Items" fills it with every item (see the method below).
         compute="_compute_sale_line_ids",
         store=True,
         readonly=False,
     )
 
-    @api.depends("wizard_id")
+    @api.depends("all_items")
     def _compute_sale_line_ids(self):
         for wizard_line in self:
-            if not wizard_line.sale_line_ids:
+            if wizard_line.all_items:
                 items = wizard_line.order_id.order_line.filtered(
                     lambda l: not l.display_type
                 )
                 # Command.set replaces the whole content of an x2many field.
                 wizard_line.sale_line_ids = [Command.set(items.ids)]
+            else:
+                # Keep what the user picked by hand (a compute method must
+                # always assign a value).
+                wizard_line.sale_line_ids = wizard_line.sale_line_ids

@@ -4,7 +4,7 @@ from psycopg2 import IntegrityError
 
 from odoo.exceptions import UserError, ValidationError
 from odoo.fields import Command
-from odoo.tests import TransactionCase, tagged
+from odoo.tests import Form, TransactionCase, tagged
 from odoo.tools import mute_logger
 
 
@@ -256,7 +256,7 @@ class TestProcurement(TransactionCase):
         Wizard.create(
             {
                 "line_ids": [
-                    Command.create({"vendor_id": self.vendor_a.id}),  # all items
+                    Command.create({"vendor_id": self.vendor_a.id, "all_items": True}),
                     Command.create(
                         {
                             "vendor_id": self.vendor_b.id,
@@ -272,9 +272,52 @@ class TestProcurement(TransactionCase):
 
         # Running it again for the same vendor adds nothing.
         Wizard.create(
-            {"line_ids": [Command.create({"vendor_id": self.vendor_a.id})]}
+            {"line_ids": [Command.create({"vendor_id": self.vendor_a.id, "all_items": True})]}
         ).action_create_requests()
         self.assertEqual(len(self.order.order_line.quote_ids), 4)
+
+    def test_request_wizard_form_behaviour(self):
+        """Drive the dialog the way the browser does (Form simulates the UI)."""
+        action = self.order.action_request_quotes()
+        form = Form(self.env[action["res_model"]].with_context(**action["context"]))
+        with form.line_ids.new() as row:
+            row.vendor_id = self.vendor_a
+            # A new row starts with no item selected...
+            self.assertEqual(len(row.sale_line_ids), 0)
+            row.sale_line_ids.add(self.line_2)
+        with form.line_ids.new() as row:
+            row.vendor_id = self.vendor_b
+            row.all_items = True
+            self.assertEqual(len(row.sale_line_ids), 3)
+        wizard = form.save()
+        # Every row knows its PO; that is what restricts the Items dropdown.
+        self.assertEqual(wizard.line_ids.order_id, self.order)
+        wizard.action_create_requests()
+        quotes = self.order.order_line.quote_ids
+        self.assertEqual(
+            quotes.filtered(lambda q: q.vendor_id == self.vendor_a).sale_line_id, self.line_2
+        )
+        self.assertEqual(len(quotes.filtered(lambda q: q.vendor_id == self.vendor_b)), 3)
+
+    def test_request_wizard_requires_items(self):
+        wizard = self.env["procurement.quote.request.wizard"].create(
+            {
+                "order_id": self.order.id,
+                "line_ids": [Command.create({"vendor_id": self.vendor_a.id})],
+            }
+        )
+        with self.assertRaises(UserError):
+            wizard.action_create_requests()
+
+    def test_item_dropdown_label_and_search(self):
+        Line = self.env["sale.order.line"]
+        short = self.line_1.with_context(procurement_item_name=True).display_name
+        self.assertEqual(short, "1. TST1 [TST1] Test Item 1")
+        # Without the context key, Odoo's standard label is unchanged.
+        self.assertTrue(self.line_1.display_name.startswith(self.order.name))
+        # Typing the client's item code in a dropdown finds the line.
+        found = Line.name_search("TST2", [("order_id", "=", self.order.id)])
+        self.assertEqual([res_id for res_id, _name in found], self.line_2.ids)
 
     # ------------------------------------------------------------------
     # Purchases

@@ -310,7 +310,9 @@ class SaleOrder(models.Model):
             "procurement_custom.action_procurement_quote"
         )
         action["domain"] = [("order_id", "=", self.id)]
-        action["context"] = {"search_default_group_item": 1}
+        # procurement_order_id: read by the views to limit the Item dropdown
+        # to this PO when a row is added by hand.
+        action["context"] = {"search_default_group_item": 1, "procurement_order_id": self.id}
         action["display_name"] = self.env._("Quote Comparison: %s", self.display_name)
         return action
 
@@ -320,6 +322,7 @@ class SaleOrder(models.Model):
             "procurement_custom.action_procurement_purchase"
         )
         action["domain"] = [("order_id", "=", self.id)]
+        action["context"] = {"procurement_order_id": self.id}
         return action
 
     def action_print_quote_requests(self):

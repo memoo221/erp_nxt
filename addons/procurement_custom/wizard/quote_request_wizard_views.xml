@@ -11,9 +11,9 @@
                     <field name="order_id"/>
                 </group>
                 <p class="text-muted">
-                    Add one row per vendor. Each row starts with every item of the PO;
-                    remove the items that vendor should not be asked for.
-                    Vendor/item pairs that were already requested are skipped.
+                    Add one row per vendor, then pick the items to ask that vendor for
+                    from the Items dropdown (only items of this PO are listed), or tick
+                    "All Items". Vendor/item pairs already requested are skipped.
                 </p>
                 <!-- A One2many shown as an editable list: rows are typed in place. -->
                 <field name="line_ids">
@@ -21,8 +21,14 @@
                         <field name="order_id" column_invisible="True"/>
                         <field name="vendor_id" width="250px"
                                context="{'res_partner_search_mode': 'supplier', 'default_supplier_rank': 1, 'default_is_company': True}"/>
+                        <field name="all_items" width="90px"/>
+                        <!-- many2many_tags: a dropdown to pick from; each
+                             picked item becomes a removable tag. The context
+                             key switches the items to their short label. -->
                         <field name="sale_line_ids" widget="many2many_tags"
-                               options="{'no_create': True}"/>
+                               options="{'no_create': True}"
+                               context="{'procurement_item_name': True}"
+                               placeholder="Pick items of this PO..."/>
                     </list>
                 </field>
                 <footer>

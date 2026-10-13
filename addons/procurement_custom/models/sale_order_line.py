@@ -20,6 +20,17 @@ class SaleOrderLine(models.Model):
     # are merged into the same class. Nothing in Odoo's own files is edited.
     _inherit = "sale.order.line"
 
+    # Fields searched when the user types in a dropdown of order lines.
+    # Odoo's default only covers the extra description and the order number;
+    # we add the client's item code, the printed description and the product.
+    _rec_names_search = (
+        "name",
+        "order_id.name",
+        "client_item_code",
+        "description_printed",
+        "product_id",
+    )
+
     # ------------------------------------------------------------------
     # The line as printed on the client's PO
     # ------------------------------------------------------------------
@@ -121,6 +132,30 @@ class SaleOrderLine(models.Model):
     # ------------------------------------------------------------------
     # Computes
     # ------------------------------------------------------------------
+    # display_name is the text shown for a record in dropdowns and tags.
+    # Odoo's default for an order line is "S00030 - [CODE] product name".
+    # In the procurement screens the order is already known, so there we show
+    # "7. ANNA97761N 2.167 Fuel-Filter-FF1191" instead.
+    #
+    # The switch is a CONTEXT key: the views that want the short label set
+    # context="{'procurement_item_name': True}" on the field.
+    # @api.depends_context tells Odoo the result differs per context value,
+    # so it must not reuse a label cached for the other case.
+    @api.depends_context("procurement_item_name")
+    @api.depends("client_line_no", "client_item_code", "description_printed")
+    def _compute_display_name(self):
+        super()._compute_display_name()
+        if not self.env.context.get("procurement_item_name"):
+            return
+        for line in self:
+            description = line.description_printed or (line.label or "").split("\n", 1)[0]
+            parts = [
+                f"{line.client_line_no}." if line.client_line_no else "",
+                line.client_item_code or "",
+                description,
+            ]
+            line.display_name = " ".join(part for part in parts if part)
+
     @api.depends("total_printed", "price_subtotal")
     def _compute_line_total_match(self):
         for line in self:

@@ -19,7 +19,12 @@
                   decoration-bf="state == 'chosen'">
                 <field name="order_id" optional="hide" readonly="1"/>
                 <field name="client_line_no" readonly="1"/>
-                <field name="sale_line_id" readonly="id" options="{'no_create': True}"/>
+                <!-- The domain is a Python-like expression: opened from a client
+                     PO (which puts its id in the context) only that PO's items
+                     are offered; otherwise the items of every client PO. -->
+                <field name="sale_line_id" readonly="id" options="{'no_create': True}"
+                       context="{'procurement_item_name': True}"
+                       domain="[('display_type', '=', False), ('order_id', '=', context.get('procurement_order_id'))] if context.get('procurement_order_id') else [('display_type', '=', False), ('order_id.is_client_po', '=', True)]"/>
                 <field name="client_item_code" optional="show"/>
                 <field name="product_uom_qty" optional="show"/>
                 <field name="product_uom_id" optional="hide"/>
@@ -79,7 +84,9 @@
                     <group>
                         <group string="Item">
                             <field name="order_id"/>
-                            <field name="sale_line_id" readonly="id" options="{'no_create': True}"/>
+                            <field name="sale_line_id" readonly="id" options="{'no_create': True}"
+                                   context="{'procurement_item_name': True}"
+                                   domain="[('display_type', '=', False), ('order_id', '=', context.get('procurement_order_id'))] if context.get('procurement_order_id') else [('display_type', '=', False), ('order_id.is_client_po', '=', True)]"/>
                             <field name="client_line_no"/>
                             <field name="client_item_code"/>
                             <field name="product_uom_qty"/>
