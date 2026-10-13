@@ -111,6 +111,9 @@ class SaleOrderLine(models.Model):
     procurement_status = fields.Selection(
         selection=[
             ("not_quoted", "Not quoted"),
+            # A vendor was asked, but no price has come back yet.
+            ("quote_requested", "Quote requested"),
+            # At least one vendor's price has been entered.
             ("quoted", "Quoted"),
             ("vendor_chosen", "Vendor chosen"),
             ("partially_obtained", "Partially obtained"),
@@ -222,6 +225,8 @@ class SaleOrderLine(models.Model):
                 line.procurement_status = "vendor_chosen"
             elif quote_states - {"requested"}:
                 line.procurement_status = "quoted"
+            elif quote_states:
+                line.procurement_status = "quote_requested"
             else:
                 line.procurement_status = "not_quoted"
 

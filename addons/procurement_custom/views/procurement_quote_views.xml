@@ -12,7 +12,9 @@
         <field name="model">procurement.quote</field>
         <field name="arch" type="xml">
             <!-- decoration-*: colour a row when the expression is true. -->
-            <list editable="bottom"
+            <!-- expand="1": when the list is grouped, open every group, so the
+                 vendor rows (where prices are typed) are visible at once. -->
+            <list editable="bottom" expand="1"
                   default_order="order_id desc, client_line_no, price_order_currency"
                   decoration-success="is_lowest and state != 'rejected'"
                   decoration-muted="state == 'rejected'"

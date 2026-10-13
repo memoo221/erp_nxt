@@ -77,31 +77,45 @@
                 <field name="uom_printed" optional="hide"
                        column_invisible="not parent.is_client_po"/>
             </xpath>
+            <!-- "Delivered" and "Invoiced" belong to Odoo's own delivery and
+                 invoicing flow, which client POs do not use. Hiding them makes
+                 room for our own progress columns. position="attributes"
+                 changes attributes of an existing node instead of adding one.
+                 (qty_delivered sits inside a <column> wrapper, hence "/..".) -->
+            <xpath expr="//field[@name='order_line']/list//field[@name='qty_delivered']/.." position="attributes">
+                <attribute name="column_invisible">parent.state != 'sale' or parent.is_client_po</attribute>
+            </xpath>
+            <xpath expr="//field[@name='order_line']/list/field[@name='qty_invoiced']" position="attributes">
+                <attribute name="column_invisible">parent.state != 'sale' or parent.is_client_po</attribute>
+            </xpath>
+            <!-- Progress right next to the ordered quantity. -->
+            <xpath expr="//field[@name='order_line']/list/field[@name='qty_invoiced']" position="after">
+                <field name="qty_obtained" string="Obtained" optional="show"
+                       column_invisible="not parent.is_client_po"/>
+                <field name="procurement_status" string="Status" optional="show" widget="badge" width="150px"
+                       decoration-muted="procurement_status == 'not_quoted'"
+                       decoration-info="procurement_status in ('quote_requested', 'quoted')"
+                       decoration-primary="procurement_status == 'vendor_chosen'"
+                       decoration-warning="procurement_status == 'partially_obtained'"
+                       decoration-success="procurement_status == 'obtained'"
+                       column_invisible="not parent.is_client_po"/>
+            </xpath>
             <xpath expr="//field[@name='order_line']/list" position="inside">
                 <field name="total_printed" optional="show"
                        column_invisible="not parent.is_client_po"/>
                 <field name="line_total_match" optional="show"
                        column_invisible="not parent.is_client_po"/>
-                <field name="delivery_group_id" optional="show"
+                <field name="delivery_group_id" optional="hide"
                        domain="[('order_id', '=', parent.id)]"
                        options="{'no_create': True}"
                        column_invisible="not parent.is_client_po"/>
                 <field name="chosen_vendor_id" optional="hide"
-                       column_invisible="not parent.is_client_po"/>
-                <field name="qty_obtained" optional="show"
                        column_invisible="not parent.is_client_po"/>
                 <field name="qty_remaining" optional="hide"
                        column_invisible="not parent.is_client_po"/>
                 <field name="avg_purchase_price" optional="hide"
                        column_invisible="not parent.is_client_po"/>
                 <field name="margin_amount" optional="hide"
-                       column_invisible="not parent.is_client_po"/>
-                <field name="procurement_status" optional="show" widget="badge"
-                       decoration-muted="procurement_status == 'not_quoted'"
-                       decoration-info="procurement_status == 'quoted'"
-                       decoration-primary="procurement_status == 'vendor_chosen'"
-                       decoration-warning="procurement_status == 'partially_obtained'"
-                       decoration-success="procurement_status == 'obtained'"
                        column_invisible="not parent.is_client_po"/>
             </xpath>
 

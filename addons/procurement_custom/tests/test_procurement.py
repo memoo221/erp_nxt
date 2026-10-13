@@ -205,8 +205,10 @@ class TestProcurement(TransactionCase):
     # ------------------------------------------------------------------
     def test_quote_states_and_lowest(self):
         quote_a = self._quote(self.line_1, self.vendor_a)
+        self.assertEqual(self.line_2.procurement_status, "not_quoted", "Nobody asked yet")
         self.assertEqual(quote_a.state, "requested")
-        self.assertEqual(self.line_1.procurement_status, "not_quoted")
+        # Asked, but no price back yet: visible on the PO line as such.
+        self.assertEqual(self.line_1.procurement_status, "quote_requested")
 
         quote_a.quoted_price = 80.0
         self.assertEqual(quote_a.state, "quoted", "Entering a price marks the quote as quoted")
