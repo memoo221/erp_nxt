@@ -81,23 +81,29 @@ class SaleOrderLine(models.Model):
         compute="_compute_chosen_vendor_id",
         store=True,
     )
+    # precompute=True on the five fields below: they are calculated while a
+    # new line is being created, before it is saved. Required because Odoo's
+    # Unit Cost (precomputed itself) depends on them.
     qty_obtained = fields.Float(
         string="Qty Obtained",
         digits="Product Unit",
         compute="_compute_procurement",
         store=True,
+        precompute=True,
     )
     qty_remaining = fields.Float(
         string="Qty Remaining",
         digits="Product Unit",
         compute="_compute_procurement",
         store=True,
+        precompute=True,
     )
     avg_purchase_price = fields.Float(
         string="Avg. Purchase Price",
         digits="Product Price",
         compute="_compute_procurement",
         store=True,
+        precompute=True,
         help="Quantity-weighted average unit cost of the purchases, in the "
         "client PO's currency.",
     )
@@ -105,6 +111,7 @@ class SaleOrderLine(models.Model):
         string="Procurement Margin",
         compute="_compute_procurement",
         store=True,
+        precompute=True,
         help="(client unit price - average purchase price) x quantity obtained, "
         "in the client PO's currency. Covers only what has been bought so far.",
     )
@@ -122,6 +129,7 @@ class SaleOrderLine(models.Model):
         string="Procurement Status",
         compute="_compute_procurement",
         store=True,
+        precompute=True,
     )
 
     # A UNIQUE INDEX with a WHERE clause ("partial index"): the pair
@@ -164,6 +172,33 @@ class SaleOrderLine(models.Model):
         for line in self:
             line.line_total_match = amounts_match(line.total_printed, line.price_subtotal)
 
+    # Odoo's Sale Margin app ("M:" under the unit price, margin reports) takes
+    # its cost from purchase_price ("Unit Cost"), which it fills from the
+    # product's Cost field. On a client PO the real cost is what we paid the
+    # vendors, so once something is bought the average purchase price is used.
+    # @api.depends on an override ADDS to the dependencies of Odoo's method.
+    @api.depends("order_id.is_client_po", "qty_obtained", "avg_purchase_price")
+    def _compute_purchase_price(self):
+        super()._compute_purchase_price()
+        for line in self:
+            if line.order_id.is_client_po and line.qty_obtained:
+                line.purchase_price = line.avg_purchase_price
+
+    # Odoo invoices the ordered quantity (or the delivered one, depending on
+    # the product's invoicing policy). A client PO is invoiced for what has
+    # actually been obtained from the vendors, whatever the product says.
+    @api.depends("order_id.is_client_po", "qty_obtained")
+    def _compute_qty_to_invoice(self):
+        super()._compute_qty_to_invoice()
+        for line in self:
+            if (
+                line.order_id.is_client_po
+                and line.state == "sale"
+                and not line.display_type
+                and line.product_id.type != "combo"
+            ):
+                line.qty_to_invoice = line.qty_obtained - line.qty_invoiced
+
     @api.depends("quote_ids.state", "quote_ids.vendor_id")
     def _compute_chosen_vendor_id(self):
         for line in self:
@@ -178,6 +213,7 @@ class SaleOrderLine(models.Model):
         "product_uom_qty",
         "price_subtotal",
         "quote_ids.state",
+        "purchase_ids.state",
         "purchase_ids.quantity",
         "purchase_ids.purchase_price",
         "purchase_ids.currency_id",
@@ -192,14 +228,16 @@ class SaleOrderLine(models.Model):
                 line.procurement_status = False
                 continue
 
-            qty_obtained = sum(line.purchase_ids.mapped("quantity"))
+            # Draft purchases are only planned; just confirmed ones count.
+            purchases = line.purchase_ids.filtered(lambda p: p.state == "confirmed")
+            qty_obtained = sum(purchases.mapped("quantity"))
             # Total cost in the PO's currency. A purchase paid in another
             # currency is converted at the rate of its own purchase date.
             total_cost = sum(
                 purchase.quantity * line._to_order_currency(
                     purchase.purchase_price, purchase.currency_id, purchase.date
                 )
-                for purchase in line.purchase_ids
+                for purchase in purchases
             )
             avg_price = total_cost / qty_obtained if qty_obtained else 0.0
             # Client unit price after discount, before tax.
@@ -229,6 +267,20 @@ class SaleOrderLine(models.Model):
                 line.procurement_status = "quote_requested"
             else:
                 line.procurement_status = "not_quoted"
+
+    def _update_open_quotes(self):
+        """Reject the unchosen quotes once the chosen ones cover the ordered
+        quantity; reopen them while some quantity is still unassigned."""
+        precision = self.env["decimal.precision"].precision_get("Product Unit")
+        for line in self:
+            chosen = line.quote_ids.filtered(lambda q: q.state == "chosen")
+            unassigned = line.product_uom_qty - sum(chosen.mapped("qty_to_buy"))
+            if float_compare(unassigned, 0.0, precision_digits=precision) <= 0:
+                line.quote_ids.filtered(
+                    lambda q: q.state in ("requested", "quoted")
+                ).write({"state": "rejected"})
+            else:
+                line.quote_ids.filtered(lambda q: q.state == "rejected")._reopen()
 
     def _to_order_currency(self, amount, currency, date):
         """Convert a unit price to this line's (the client PO's) currency."""

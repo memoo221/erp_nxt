@@ -75,6 +75,29 @@ services:
       - --dev=reload,xml
     restart: unless-stopped
 
+  # Optional database browser (pgAdmin) at http://localhost:5050.
+  # The "tools" profile keeps it out of a plain `docker compose up`; start it
+  # on demand with `docker compose up -d pgadmin`.
+  pgadmin:
+    image: dpage/pgadmin4:8.14
+    profiles: ["tools"]
+    depends_on:
+      - db
+    environment:
+      # Desktop mode: no pgAdmin login page (reachable from this machine only).
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      # Still required by the image, though unused in desktop mode.
+      PGADMIN_DEFAULT_EMAIL: admin@nxtvolt.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "127.0.0.1:5050:80"
+    volumes:
+      # Pre-registers the "nxtvolt" server, so it is listed on first start.
+      - ./config/pgadmin_servers.json:/pgadmin4/servers.json:ro
+      - pgadmin-data:/var/lib/pgadmin
+
 volumes:
   db-data:
   odoo-data:
+  pgadmin-data:

@@ -2,16 +2,37 @@ from odoo import api, fields, models
 
 
 class ProcurementPurchase(models.Model):
-    """A quantity of one PO item that we actually bought from a vendor.
+    """A quantity of one PO item that we buy from a vendor.
 
     One item can have several purchase records: quantities often arrive in
-    parts over time, sometimes at different prices. The totals per item
-    (quantity obtained, average price, margin) are computed on sale.order.line.
+    parts over time, sometimes at different prices, sometimes from different
+    vendors. The totals per item (quantity obtained, average price, margin)
+    are computed on sale.order.line, from CONFIRMED purchases only.
+
+    Life cycle:  draft -> confirmed
+    Choosing a quote creates a draft purchase; the user checks it and confirms.
     """
 
     _name = "procurement.purchase"
     _description = "Item Purchase"
     _order = "date desc, id desc"
+
+    state = fields.Selection(
+        selection=[("draft", "To Confirm"), ("confirmed", "Confirmed")],
+        string="Status",
+        default="draft",
+        required=True,
+        index=True,
+        copy=False,
+    )
+    quote_id = fields.Many2one(
+        comodel_name="procurement.quote",
+        string="Chosen Quote",
+        readonly=True,
+        ondelete="set null",
+        index="btree_not_null",
+        help="The quote whose choice created this purchase.",
+    )
 
     sale_line_id = fields.Many2one(
         comodel_name="sale.order.line",
@@ -69,6 +90,12 @@ class ProcurementPurchase(models.Model):
         readonly=False,
         precompute=True,
     )
+    qty_received = fields.Float(
+        string="Qty Received",
+        digits="Product Unit",
+        default=0.0,
+        help="The quantity of this purchase that has been received from the vendor.",
+    )
     quantity = fields.Float(digits="Product Unit", required=True, default=1.0)
     date = fields.Date(required=True, default=fields.Date.context_today)
     notes = fields.Char()
@@ -82,9 +109,11 @@ class ProcurementPurchase(models.Model):
     )
 
     def _chosen_quote(self):
-        """The chosen quote of this purchase's item (an empty recordset if none)."""
+        """The quote this purchase came from, else the item's first chosen quote."""
         self.ensure_one()
-        return self.sale_line_id.quote_ids.filtered(lambda q: q.state == "chosen")[:1]
+        return self.quote_id or self.sale_line_id.quote_ids.filtered(
+            lambda q: q.state == "chosen"
+        )[:1]
 
     # In the three methods below a value is only filled in while the field is
     # still empty, so changing the item never wipes what the user typed.
@@ -122,3 +151,15 @@ class ProcurementPurchase(models.Model):
                 f"{purchase.quantity:g} x {purchase.sale_line_id.display_name or ''}"
                 f" ({purchase.vendor_id.name or ''})"
             )
+
+    # ------------------------------------------------------------------
+    # Buttons
+    # ------------------------------------------------------------------
+    def action_confirm(self):
+        """The purchase is done: its quantity now counts as obtained."""
+        self.write({"state": "confirmed"})
+        return True
+
+    def action_draft(self):
+        self.write({"state": "draft"})
+        return True

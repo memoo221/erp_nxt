@@ -4,3 +4,4 @@ from . import procurement_quote
 from . import procurement_purchase
 from . import sale_order_line
 from . import sale_order
+from . import account_move

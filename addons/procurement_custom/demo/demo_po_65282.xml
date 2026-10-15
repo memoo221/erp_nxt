@@ -545,6 +545,7 @@
         <field name="quoted_price">6900.00</field>
         <field name="quote_date">2026-07-27</field>
         <field name="state">chosen</field>
+        <field name="qty_to_buy">1</field>
     </record>
     <record id="quote_l01_nile" model="procurement.quote">
         <field name="sale_line_id" ref="po_65282_line_01"/>
@@ -567,6 +568,7 @@
         <field name="quoted_price">60.00</field>
         <field name="quote_date">2026-07-28</field>
         <field name="state">chosen</field>
+        <field name="qty_to_buy">35</field>
     </record>
     <!-- Line 7: Fuel filter. Three quotes, Cairo Filters chosen. -->
     <record id="quote_l07_cairo" model="procurement.quote">
@@ -575,6 +577,7 @@
         <field name="quoted_price">1.05</field>
         <field name="quote_date">2026-07-26</field>
         <field name="state">chosen</field>
+        <field name="qty_to_buy">28600</field>
     </record>
     <record id="quote_l07_delta" model="procurement.quote">
         <field name="sale_line_id" ref="po_65282_line_07"/>
@@ -597,6 +600,7 @@
         <field name="quoted_price">2.10</field>
         <field name="quote_date">2026-07-26</field>
         <field name="state">chosen</field>
+        <field name="qty_to_buy">1300</field>
     </record>
     <record id="quote_l08_nile" model="procurement.quote">
         <field name="sale_line_id" ref="po_65282_line_08"/>
@@ -612,6 +616,7 @@
         <field name="quoted_price">1.60</field>
         <field name="quote_date">2026-07-26</field>
         <field name="state">chosen</field>
+        <field name="qty_to_buy">30500</field>
     </record>
     <record id="quote_l12_delta" model="procurement.quote">
         <field name="sale_line_id" ref="po_65282_line_12"/>
@@ -647,8 +652,10 @@
     </record>
 
     <!-- ================= Purchases (invented) ================= -->
+    <!-- All confirmed: only confirmed purchases count as obtained. -->
     <!-- Line 1: bought in full. -->
     <record id="purchase_l01_a" model="procurement.purchase">
+        <field name="state">confirmed</field>
         <field name="sale_line_id" ref="po_65282_line_01"/>
         <field name="vendor_id" ref="vendor_delta"/>
         <field name="purchase_price">6900.00</field>
@@ -658,6 +665,7 @@
     </record>
     <!-- Line 3: 20 of 35 so far. -->
     <record id="purchase_l03_a" model="procurement.purchase">
+        <field name="state">confirmed</field>
         <field name="sale_line_id" ref="po_65282_line_03"/>
         <field name="vendor_id" ref="vendor_nile"/>
         <field name="purchase_price">60.00</field>
@@ -668,6 +676,7 @@
     <!-- Line 7: two partial purchases (18,000 of 28,600), the second one
          at a higher price than quoted. -->
     <record id="purchase_l07_a" model="procurement.purchase">
+        <field name="state">confirmed</field>
         <field name="sale_line_id" ref="po_65282_line_07"/>
         <field name="vendor_id" ref="vendor_cairo_filters"/>
         <field name="purchase_price">1.05</field>
@@ -677,6 +686,7 @@
         <field name="notes">Immediate batch</field>
     </record>
     <record id="purchase_l07_b" model="procurement.purchase">
+        <field name="state">confirmed</field>
         <field name="sale_line_id" ref="po_65282_line_07"/>
         <field name="vendor_id" ref="vendor_cairo_filters"/>
         <field name="purchase_price">1.07</field>
@@ -687,6 +697,7 @@
     </record>
     <!-- Line 8: bought in full. -->
     <record id="purchase_l08_a" model="procurement.purchase">
+        <field name="state">confirmed</field>
         <field name="sale_line_id" ref="po_65282_line_08"/>
         <field name="vendor_id" ref="vendor_cairo_filters"/>
         <field name="purchase_price">2.10</field>

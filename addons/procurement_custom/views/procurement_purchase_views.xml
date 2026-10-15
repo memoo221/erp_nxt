@@ -1,28 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- Choosing a quote adds a DRAFT row here with its vendor, quantity and
+         price. Check it, then press Confirm: only confirmed rows count as
+         obtained. A confirmed row is locked until it is set back to draft. -->
     <record id="view_procurement_purchase_list" model="ir.ui.view">
         <field name="name">procurement.purchase.list</field>
         <field name="model">procurement.purchase</field>
         <field name="arch" type="xml">
-            <list editable="top">
-                <field name="date"/>
+            <list editable="top" decoration-bf="state == 'draft'">
+                <!-- Status and Confirm come first so they are seen at once. -->
+                <field name="state" widget="badge"
+                       decoration-warning="state == 'draft'"
+                       decoration-success="state == 'confirmed'"/>
+                <button name="action_confirm" type="object" string="Confirm"
+                        class="btn-primary" icon="fa-check" invisible="state != 'draft'"/>
+                <field name="date" readonly="state == 'confirmed'"/>
                 <field name="order_id" optional="show" readonly="1"/>
                 <field name="client_line_no" readonly="1"/>
                 <!-- Picking the item fills vendor, price and currency from the
                      chosen quote (computed, but still editable). -->
                 <field name="sale_line_id" options="{'no_create': True}"
+                       readonly="state == 'confirmed' or quote_id"
                        context="{'procurement_item_name': True}"
                        domain="[('display_type', '=', False), ('order_id', '=', context.get('procurement_order_id'))] if context.get('procurement_order_id') else [('display_type', '=', False), ('order_id.is_client_po', '=', True)]"/>
+                <field name="quote_id" column_invisible="True"/>
                 <field name="client_item_code" optional="show"/>
-                <field name="vendor_id"
+                <field name="vendor_id" readonly="state == 'confirmed'"
                        context="{'res_partner_search_mode': 'supplier', 'default_supplier_rank': 1, 'default_is_company': True}"/>
-                <field name="quantity" sum="Total quantity"/>
+                <field name="quantity" sum="Total quantity" readonly="state == 'confirmed'"/>
                 <field name="qty_ordered" optional="show"/>
                 <field name="product_uom_id" optional="hide"/>
-                <field name="purchase_price"/>
-                <field name="currency_id" optional="show" options="{'no_create': True}"/>
+                <field name="purchase_price" readonly="state == 'confirmed'"/>
+                <field name="currency_id" optional="show" options="{'no_create': True}"
+                       readonly="state == 'confirmed'"/>
                 <field name="amount" optional="show"/>
                 <field name="notes" optional="show"/>
+                <button name="action_draft" type="object" string="Reset"
+                        icon="fa-undo" invisible="state != 'confirmed'"/>
             </list>
         </field>
     </record>
@@ -32,10 +46,18 @@
         <field name="model">procurement.purchase</field>
         <field name="arch" type="xml">
             <form>
+                <header>
+                    <button name="action_confirm" type="object" string="Confirm"
+                            class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_draft" type="object" string="Reset to Draft"
+                            invisible="state != 'confirmed'"/>
+                    <field name="state" widget="statusbar"/>
+                </header>
                 <sheet>
                     <group>
                         <group string="Item">
                             <field name="sale_line_id" options="{'no_create': True}"
+                                   readonly="state == 'confirmed' or quote_id"
                                    context="{'procurement_item_name': True}"
                        domain="[('display_type', '=', False), ('order_id', '=', context.get('procurement_order_id'))] if context.get('procurement_order_id') else [('display_type', '=', False), ('order_id.is_client_po', '=', True)]"/>
                             <field name="order_id"/>
@@ -43,13 +65,15 @@
                             <field name="client_item_code"/>
                             <field name="qty_ordered"/>
                             <field name="product_uom_id"/>
+                            <field name="quote_id" invisible="not quote_id"/>
                         </group>
                         <group string="Purchase">
-                            <field name="vendor_id"/>
-                            <field name="date"/>
-                            <field name="quantity"/>
-                            <field name="purchase_price"/>
-                            <field name="currency_id" options="{'no_create': True}"/>
+                            <field name="vendor_id" readonly="state == 'confirmed'"/>
+                            <field name="date" readonly="state == 'confirmed'"/>
+                            <field name="quantity" readonly="state == 'confirmed'"/>
+                            <field name="purchase_price" readonly="state == 'confirmed'"/>
+                            <field name="currency_id" options="{'no_create': True}"
+                                   readonly="state == 'confirmed'"/>
                             <field name="amount"/>
                             <field name="notes"/>
                         </group>
@@ -67,6 +91,10 @@
                 <field name="order_id"/>
                 <field name="vendor_id"/>
                 <field name="sale_line_id"/>
+                <filter name="filter_draft" string="To Confirm"
+                        domain="[('state', '=', 'draft')]"/>
+                <filter name="filter_confirmed" string="Confirmed"
+                        domain="[('state', '=', 'confirmed')]"/>
                 <group>
                     <filter name="group_order" string="Client PO"
                             context="{'group_by': 'order_id'}"/>
@@ -74,6 +102,8 @@
                             context="{'group_by': 'sale_line_id'}"/>
                     <filter name="group_vendor" string="Vendor"
                             context="{'group_by': 'vendor_id'}"/>
+                    <filter name="group_state" string="Status"
+                            context="{'group_by': 'state'}"/>
                     <filter name="group_date" string="Month"
                             context="{'group_by': 'date:month'}"/>
                 </group>
@@ -86,9 +116,10 @@
         <field name="res_model">procurement.purchase</field>
         <field name="view_mode">list,form</field>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">No purchases recorded yet</p>
-            <p>Record each quantity you buy for an item of a client PO. One item
-               can have several purchases as quantities arrive over time.</p>
+            <p class="o_view_nocontent_smiling_face">No purchases yet</p>
+            <p>Choosing a vendor's quote adds a draft purchase here. Confirm it
+               once the purchase is done: only confirmed purchases count as
+               obtained.</p>
         </field>
     </record>
 </odoo>

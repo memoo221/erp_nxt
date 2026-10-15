@@ -76,10 +76,19 @@ class TestProcurement(TransactionCase):
             {"sale_line_id": line.id, "vendor_id": vendor.id, "quoted_price": price}
         )
 
+    def _choose(self, quote, qty=None):
+        """Type the quantity on the quote row (if given), then press Choose."""
+        if qty is not None:
+            quote.qty_to_buy = qty
+        return quote.action_choose()
+
     def _purchase(self, line, qty, **extra):
-        return self.env["procurement.purchase"].create(
+        """A confirmed purchase recorded by hand."""
+        purchase = self.env["procurement.purchase"].create(
             {"sale_line_id": line.id, "quantity": qty, **extra}
         )
+        purchase.action_confirm()
+        return purchase
 
     # ------------------------------------------------------------------
     # Totals as printed
@@ -220,14 +229,15 @@ class TestProcurement(TransactionCase):
         self.assertTrue(quote_b.is_lowest)
         self.assertFalse(quote_a.is_lowest)
 
-    def test_only_one_chosen_quote_per_item(self):
+    def test_chosen_quantities_cannot_exceed_ordered(self):
         quote_a = self._quote(self.line_1, self.vendor_a, 80.0)
         quote_b = self._quote(self.line_1, self.vendor_b, 75.0)
-        quote_a.state = "chosen"
+        quote_a.write({"qty_to_buy": 6, "state": "chosen"})
         with self.assertRaises(ValidationError):
-            quote_b.state = "chosen"
+            quote_b.write({"qty_to_buy": 5, "state": "chosen"})  # 6 + 5 > 10
+        quote_b.write({"qty_to_buy": 4, "state": "chosen"})  # 6 + 4 = 10
 
-    def test_choose_action_rejects_the_others(self):
+    def test_choose_creates_draft_purchase_and_rejects_the_others(self):
         quote_a = self._quote(self.line_1, self.vendor_a, 80.0)
         quote_b = self._quote(self.line_1, self.vendor_b, 75.0)
         quote_c = self._quote(self.line_1, self.vendor_c)  # no price yet
@@ -236,20 +246,117 @@ class TestProcurement(TransactionCase):
         with self.assertRaises(UserError):
             quote_c.action_choose()
 
-        quote_b.action_choose()
+        # No quantity typed: the vendor gets the whole ordered quantity.
+        self._choose(quote_b)
         self.assertEqual(quote_b.state, "chosen")
+        self.assertEqual(quote_b.qty_to_buy, 10)
+        self.assertEqual(quote_b.amount_to_buy, 750.0)
         self.assertEqual(quote_a.state, "rejected")
         self.assertEqual(quote_c.state, "rejected")
         self.assertEqual(other_item.state, "quoted", "Quotes of other items are untouched")
         self.assertEqual(self.line_1.chosen_vendor_id, self.vendor_b)
-        self.assertEqual(self.line_1.procurement_status, "vendor_chosen")
         self.assertEqual(self.order.items_chosen_count, 1)
 
-        # Choosing another quote moves the choice instead of failing.
-        quote_a.action_choose()
-        self.assertEqual(quote_a.state, "chosen")
-        self.assertEqual(quote_b.state, "rejected")
-        self.assertEqual(self.line_1.chosen_vendor_id, self.vendor_a)
+        purchase = quote_b.purchase_ids
+        self.assertEqual(len(purchase), 1)
+        self.assertEqual(purchase.state, "draft")
+        self.assertEqual(purchase.vendor_id, self.vendor_b)
+        self.assertEqual(purchase.quantity, 10)
+        self.assertEqual(purchase.purchase_price, 75.0)
+        self.assertEqual(purchase.amount, 750.0)
+        # A draft purchase is only planned: nothing obtained yet.
+        self.assertEqual(self.line_1.qty_obtained, 0)
+        self.assertEqual(self.line_1.procurement_status, "vendor_chosen")
+
+        purchase.action_confirm()
+        self.assertEqual(self.line_1.qty_obtained, 10)
+        self.assertEqual(self.line_1.procurement_status, "obtained")
+        self.assertEqual(self.order.items_obtained_count, 1)
+
+        # Everything is assigned: another vendor cannot be chosen on top.
+        with self.assertRaises(UserError):
+            quote_a.action_choose()
+        # A confirmed purchase blocks undoing the choice...
+        with self.assertRaises(UserError):
+            quote_b.action_reset()
+        # ...until it is set back to draft.
+        purchase.action_draft()
+        self.assertEqual(self.line_1.qty_obtained, 0)
+        quote_b.action_reset()
+        self.assertFalse(purchase.exists(), "Undo deletes the draft purchase")
+        self.assertEqual(quote_b.state, "quoted")
+        self.assertEqual(quote_a.state, "quoted", "Rejected quotes are open again")
+        self.assertEqual(quote_c.state, "requested")
+        self.assertEqual(self.line_1.procurement_status, "quoted")
+
+    def test_add_quote_returns_to_comparison_without_choosing(self):
+        quote = self._quote(self.line_1, self.vendor_a, 80.0)
+        action = quote.action_add()
+        self.assertEqual(action["res_model"], "procurement.quote")
+        self.assertEqual(action["domain"], [("order_id", "=", self.order.id)])
+        self.assertEqual(quote.state, "quoted", "Adding never chooses")
+        self.assertFalse(self.line_1.purchase_ids)
+
+    def test_change_quantity_of_chosen_vendor(self):
+        quote_a = self._quote(self.line_1, self.vendor_a, 80.0)
+        quote_b = self._quote(self.line_1, self.vendor_b, 75.0)
+        self._choose(quote_b)  # all 10
+        self.assertEqual(quote_a.state, "rejected")
+        purchase = quote_b.purchase_ids
+
+        # Lowering the chosen quantity: the draft purchase follows and the
+        # other vendor is open again for the rest.
+        quote_b.qty_to_buy = 6
+        self.assertEqual(purchase.quantity, 6)
+        self.assertEqual(purchase.amount, 450.0)
+        self.assertEqual(quote_a.state, "quoted")
+        self._choose(quote_a)
+        self.assertEqual(quote_a.qty_to_buy, 4)
+
+        # Raising it past the ordered quantity is refused.
+        with self.assertRaises(ValidationError):
+            quote_b.qty_to_buy = 7
+        # Clearing it is refused: Undo is the way to drop a vendor.
+        with self.assertRaises(UserError):
+            quote_b.qty_to_buy = 0
+        # Once the purchase is confirmed, the quantity is locked.
+        purchase.action_confirm()
+        with self.assertRaises(UserError):
+            quote_b.qty_to_buy = 5
+
+    def test_split_item_between_vendors(self):
+        quote_a = self._quote(self.line_1, self.vendor_a, 80.0)
+        quote_b = self._quote(self.line_1, self.vendor_b, 75.0)
+        quote_c = self._quote(self.line_1, self.vendor_c, 90.0)
+
+        self.assertEqual(quote_a.qty_needed, 10)
+        self._choose(quote_b, 6)
+        # Every quote of the item now shows the 4 still needed.
+        self.assertEqual(quote_a.qty_needed, 4)
+        self.assertEqual(quote_c.qty_needed, 4)
+        # 4 still unassigned: the other quotes stay open.
+        self.assertEqual(quote_a.state, "quoted")
+        self.assertEqual(quote_c.state, "quoted")
+
+        with self.assertRaises(ValidationError):
+            self._choose(quote_a, 5)  # only 4 left
+        # Back to empty: Choose takes the 4 that are left.
+        quote_a.qty_to_buy = 0
+        self._choose(quote_a)
+        self.assertEqual(quote_a.qty_to_buy, 4)
+        self.assertEqual(quote_c.state, "rejected", "Fully assigned: the rest is rejected")
+
+        purchases = self.line_1.purchase_ids
+        self.assertEqual(sorted(purchases.mapped("quantity")), [4, 6])
+        self.assertEqual(set(purchases.mapped("state")), {"draft"})
+
+        quote_b.purchase_ids.action_confirm()
+        self.assertEqual(self.line_1.qty_obtained, 6)
+        self.assertEqual(self.line_1.procurement_status, "partially_obtained")
+        quote_a.purchase_ids.action_confirm()
+        self.assertEqual(self.line_1.procurement_status, "obtained")
+        # (6 x 75 + 4 x 80) / 10
+        self.assertAlmostEqual(self.line_1.avg_purchase_price, 77.0)
 
     def test_request_wizard_creates_quotes_without_duplicates(self):
         Wizard = self.env["procurement.quote.request.wizard"].with_context(
@@ -325,7 +432,7 @@ class TestProcurement(TransactionCase):
     # Purchases
     # ------------------------------------------------------------------
     def test_partial_purchases_quantities_and_status(self):
-        self._quote(self.line_1, self.vendor_a, 80.0).action_choose()
+        self._choose(self._quote(self.line_1, self.vendor_a, 80.0))
 
         first = self._purchase(self.line_1, 4)
         # Defaults come from the chosen quote.
@@ -353,16 +460,22 @@ class TestProcurement(TransactionCase):
         self.assertEqual(self.line_1.procurement_status, "partially_obtained")
 
     def test_margin(self):
-        self._quote(self.line_1, self.vendor_a, 80.0).action_choose()
+        self._choose(self._quote(self.line_1, self.vendor_a, 80.0))
         self._purchase(self.line_1, 4)  # 4 x 80
         self.assertAlmostEqual(self.line_1.avg_purchase_price, 80.0)
         # (client price 100 - cost 80) x 4 obtained
         self.assertAlmostEqual(self.line_1.margin_amount, 80.0, places=2)
 
+        # Odoo's own margin (Sale Margin app) uses the same cost.
+        self.assertAlmostEqual(self.line_1.purchase_price, 80.0)
+        self.assertAlmostEqual(self.line_1.margin, 1000.0 - 80.0 * 10, places=2)
+
         self._purchase(self.line_1, 6, purchase_price=90.0)  # 6 x 90
         # weighted average = (4*80 + 6*90) / 10 = 86
         self.assertAlmostEqual(self.line_1.avg_purchase_price, 86.0)
         self.assertAlmostEqual(self.line_1.margin_amount, (100.0 - 86.0) * 10, places=2)
+        self.assertAlmostEqual(self.line_1.purchase_price, 86.0)
+        self.assertAlmostEqual(self.line_1.margin, (100.0 - 86.0) * 10, places=2)
 
     def test_margin_with_purchase_in_another_currency(self):
         egp = self.env.ref("base.EGP")
@@ -387,6 +500,66 @@ class TestProcurement(TransactionCase):
         self.assertEqual(self.line_2.procurement_status, "obtained")
 
     # ------------------------------------------------------------------
+    # Invoices
+    # ------------------------------------------------------------------
+    def test_invoice_only_what_was_obtained(self):
+        self.order.action_confirm()
+        # Nothing bought yet: nothing to invoice, whatever the invoicing policy.
+        self.assertEqual(self.line_1.qty_to_invoice, 0)
+        with self.assertRaises(UserError):
+            self.order._create_invoices()
+
+        self._purchase(self.line_1, 4, vendor_id=self.vendor_a.id, purchase_price=80.0)
+        self.assertEqual(self.line_1.qty_to_invoice, 4)
+        first = self.order._create_invoices()
+        self.assertEqual(first.invoice_line_ids.quantity, 4, "Only the 4 obtained, not the 10 ordered")
+        first.action_post()
+        self.assertEqual(self.line_1.qty_to_invoice, 0)
+
+        # Six more obtained: the next invoice takes just those.
+        self._purchase(self.line_1, 6, vendor_id=self.vendor_a.id, purchase_price=80.0)
+        self.assertEqual(self.line_1.qty_to_invoice, 6)
+        self.assertEqual(self.order._create_invoices().invoice_line_ids.quantity, 6)
+
+    def test_invoice_currency_change_converts_prices(self):
+        egp = self.env.ref("base.EGP")
+        egp.active = True
+        Rate = self.env["res.currency.rate"]
+        Rate.search([("currency_id", "in", (self.usd | egp).ids)]).unlink()
+        Rate.create(
+            [
+                {"currency_id": self.usd.id, "rate": 1.0, "name": "2020-01-01"},
+                {"currency_id": egp.id, "rate": 50.0, "name": "2020-01-01"},
+            ]
+        )
+        self.order.action_confirm()
+        self._purchase(self.line_1, 10, vendor_id=self.vendor_a.id, purchase_price=80.0)
+        invoice = self.order._create_invoices()
+        line = invoice.invoice_line_ids.filtered(lambda l: l.sale_line_ids == self.line_1)
+        self.assertEqual(line.price_unit, 100.0)
+
+        if invoice.company_currency_id != self.usd:
+            self.skipTest("The rate checks below assume a company in USD.")
+
+        with Form(invoice) as form:
+            form.currency_id = egp
+            # The rate box proposes the stored rate.
+            self.assertAlmostEqual(form.invoice_currency_rate, 50.0)
+        self.assertAlmostEqual(line.price_unit, 5000.0)
+
+        # Typing another rate in the box converts again, from the PO price.
+        # (The box is a widget on a hidden field, which Form cannot type in;
+        # the browser sets the field and the same onchange runs.)
+        invoice.invoice_currency_rate = 60.0
+        invoice._onchange_currency_convert_prices()
+        self.assertAlmostEqual(line.price_unit, 6000.0)
+
+        # Back to the PO's currency: exactly the PO price again.
+        with Form(invoice) as form:
+            form.currency_id = self.usd
+        self.assertAlmostEqual(line.price_unit, 100.0)
+
+    # ------------------------------------------------------------------
     # Reports
     # ------------------------------------------------------------------
     def _render(self, report_name, records):
@@ -396,7 +569,7 @@ class TestProcurement(TransactionCase):
         return html.decode()
 
     def test_client_status_report_hides_vendors_and_costs(self):
-        self._quote(self.line_1, self.vendor_a, 8123.45).action_choose()
+        self._choose(self._quote(self.line_1, self.vendor_a, 8123.45))
         self._quote(self.line_1, self.vendor_b, 8234.56)
         self._purchase(self.line_1, 4, purchase_price=8345.67)
 

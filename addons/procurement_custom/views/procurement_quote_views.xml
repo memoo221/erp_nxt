@@ -28,7 +28,8 @@
                        context="{'procurement_item_name': True}"
                        domain="[('display_type', '=', False), ('order_id', '=', context.get('procurement_order_id'))] if context.get('procurement_order_id') else [('display_type', '=', False), ('order_id.is_client_po', '=', True)]"/>
                 <field name="client_item_code" optional="show"/>
-                <field name="product_uom_qty" optional="show"/>
+                <field name="qty_needed"/>
+                <field name="product_uom_qty" optional="hide"/>
                 <field name="product_uom_id" optional="hide"/>
                 <field name="vendor_id" readonly="id"
                        context="{'res_partner_search_mode': 'supplier', 'default_supplier_rank': 1, 'default_is_company': True}"/>
@@ -37,6 +38,11 @@
                        readonly="state == 'chosen'"/>
                 <field name="price_order_currency" optional="hide"/>
                 <field name="order_currency_id" column_invisible="True"/>
+                <!-- Type the quantity for this vendor, then press Choose.
+                     Empty = everything not yet given to another vendor.
+                     Still editable once chosen: the draft purchase follows. -->
+                <field name="qty_to_buy"/>
+                <field name="amount_to_buy" optional="show"/>
                 <field name="quote_date" optional="show"/>
                 <field name="is_lowest" readonly="1" optional="show"/>
                 <field name="state" widget="badge"
@@ -45,9 +51,10 @@
                        decoration-success="state == 'chosen'"
                        decoration-danger="state == 'rejected'"/>
                 <field name="notes" optional="show"/>
+                <!-- Hidden on a row being added: save it first, then choose. -->
                 <button name="action_choose" type="object" string="Choose"
                         class="btn-primary" icon="fa-check"
-                        invisible="state == 'chosen' or not quoted_price"/>
+                        invisible="not id or state == 'chosen' or not quoted_price"/>
                 <button name="action_reset" type="object" string="Undo"
                         icon="fa-undo" invisible="state != 'chosen'"/>
             </list>
@@ -74,9 +81,13 @@
         <field name="arch" type="xml">
             <form>
                 <header>
+                    <!-- A new quote is first added to the comparison table;
+                         choosing happens there, next to the other vendors. -->
+                    <button name="action_add" type="object" string="Add"
+                            class="btn-primary" invisible="id"/>
                     <button name="action_choose" type="object" string="Choose"
                             class="btn-primary"
-                            invisible="state == 'chosen' or not quoted_price"/>
+                            invisible="not id or state == 'chosen' or not quoted_price"/>
                     <button name="action_reset" type="object" string="Undo Choice"
                             invisible="state != 'chosen'"/>
                     <field name="state" widget="statusbar"
@@ -92,6 +103,7 @@
                             <field name="client_line_no"/>
                             <field name="client_item_code"/>
                             <field name="product_uom_qty"/>
+                            <field name="qty_needed"/>
                             <field name="product_uom_id"/>
                         </group>
                         <group string="Quote">
@@ -101,6 +113,10 @@
                             <field name="price_order_currency"
                                    invisible="currency_id == order_currency_id"/>
                             <field name="order_currency_id" invisible="1"/>
+                            <field name="qty_to_buy"/>
+                            <field name="amount_to_buy"/>
+                            <field name="purchase_ids" widget="many2many_tags"
+                                   invisible="not purchase_ids"/>
                             <field name="quote_date"/>
                             <field name="is_lowest"/>
                             <field name="notes"/>

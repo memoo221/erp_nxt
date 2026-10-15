@@ -4,14 +4,16 @@
     "name": "NXTVOLT Procurement",
     "summary": "Register client POs, request vendor quotes, compare, purchase, report",
     # Convention: <odoo version>.<module major>.<minor>.<patch>
-    "version": "20.0.1.0.0",
+    "version": "20.0.1.4.0",
     "category": "Sales",
     "author": "NXTVOLT",
     "license": "LGPL-3",
     # Modules that must be installed first. Their models/views are the ones we
     # extend. `sale` (pulled in by sale_management) already provides the
     # `incoterm` field, so sale_stock is not needed.
-    "depends": ["sale_management", "contacts"],
+    # sale_margin: the line's Unit Cost is fed from our purchases (see
+    # sale_order_line._compute_purchase_price).
+    "depends": ["sale_management", "sale_margin", "contacts"],
     # Files loaded into the database on install/upgrade, IN THIS ORDER.
     # Order matters: a file may only reference things defined before it
     # (e.g. a menu needs its action, a view needs the model's access rules).
